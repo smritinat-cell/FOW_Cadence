@@ -42,6 +42,8 @@
 }
 .demo-stage-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); gap: 18px; align-items: start; margin-top: 18px; }
 .demo-stage-grid > .score-section { min-width: 0; }
+.demo-prompt-editor { width: 100%; min-height: 150px; resize: vertical; }
+.sim-run-buttons { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
 .demo-transcript { max-height: 490px; font-size: 12px; line-height: 1.8; }
 .demo-review-copy { color: var(--muted); font: 13px/1.8 var(--font-ui); }
 .demo-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
