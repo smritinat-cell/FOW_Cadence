@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f7f2">
+  <meta name="description" content="An accessibility evaluation workspace for speech-driven agents.">
+  <title>Speech Prompt Lab</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Workspace navigation">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div><div class="brand-name">Speech Prompt Lab</div><div class="brand-sub">Accessibility workspace</div></div>
+      </div>
+      <div class="nav-label">Evaluation flow</div>
+      <nav class="nav-list" aria-label="Evaluation screens">
+        <a class="nav-link" data-route="/setup" href="#/setup"><span class="nav-number">01</span><span>Set up an eval</span></a>
+        <a class="nav-link" data-route="/simulation" href="#/simulation"><span class="nav-number">02</span><span>Simulation</span></a>
+        <a class="nav-link" data-route="/scorecard" href="#/scorecard"><span class="nav-number">03</span><span>Scorecard</span></a>
+        <a class="nav-link" data-route="/comparison" href="#/comparison"><span class="nav-number">04</span><span>Before &amp; after</span></a>
+      </nav>
+      <div class="sidebar-note">
+        <div class="note-kicker">Built for better listening</div>
+        <p>Make overlooked speech patterns visible before they become workplace barriers.</p>
+      </div>
+      <div class="sidebar-foot">PHASE 01 · SETUP &amp; NAVIGATION</div>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <div class="breadcrumb"><span>Workspace</span><span aria-hidden="true">/</span><strong id="breadcrumb-title">Set up an eval</strong></div>
+        <span class="phase-pill">Phase 1 · No provider calls</span>
+      </header>
+      <div class="content" id="app-content" aria-live="polite"></div>
+    </main>
+  </div>
+  <script src="./app.js"></script>
+</body>
+</html>

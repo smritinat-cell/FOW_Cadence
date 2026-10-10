@@ -1,0 +1,33 @@
+CONTEXT FOR THIS BUILD
+Product: Speech Prompt Lab, an accessibility eval platform for voice agents. It tests how well a speech model understands people whose speech isn't "standard" (stuttering, sound differences, accents, Tourette syndrome), and gives concrete system-prompt fixes. Built for the FOW Hackathon, Accessible Workplace track. Buyer: teams shipping voice agents where failure is costly (workplace assistants, healthcare, emergency services).
+
+UI: We already like the UI, which follows this wireframe: https://claude.ai/artifact/43HYrhqyuGTEAnb4N1DKKW
+It has four screens: Set up an eval, Simulation running, Scorecard and prompt fixes, Before and after. Preserve the existing layout, styling and component structure. Wire existing controls to real behavior and add only the minimal states the phase requires. Use the project's existing stack. Wireframe example numbers and conversations are illustrative: never show them as real results.
+
+Speech provider: Ultravox (server-side only). Key in Replit Secret ULTRAVOX_API_KEY. Never expose keys or private WebSocket join URLs to the browser, browser storage, logs or downloads.
+
+Demo mode: the app runs on 3 curated samples in /demo-pack (audio + JSON with purpose, reference transcript, critical items, reference material + a pre-written fixed prompt + fallback fixes). Baseline and revised runs are real, live Ultravox calls. Recommendations may be pre-written for the demo, and the UI must say which values are measured, which are AI-judged and which are curated.
+
+Honesty rules:
+- Never fabricate results. Anything not computed shows a clear "unavailable" or "coming soon" state.
+- Only make paid provider calls when the user clicks a run button. Never on load, refresh, preview, polling or restore.
+- Don't mention ElevenLabs anywhere in the UI.
+
+Work only on the phase below. When finished: run the app, verify in Replit Preview, and report what works, what you verified and anything blocked. Then stop and wait for me.
+
+PHASE 1 — Shell, navigation, demo sample picker
+
+Goal: the existing four-screen UI loads and navigates, and the "Set up an eval" screen is driven by the 3 demo samples. No provider calls yet.
+
+1. Make sure the app runs with one documented start command in Replit and that navigation between the four screens works.
+2. On "Set up an eval", replace free-form upload as the primary input with 3 sample cards (title, speech profile tag, duration, play button). Load them from /demo-pack/*.json + audio. If /demo-pack is empty, use clearly labeled placeholder cards ("Sample not loaded yet") and keep everything working.
+3. Selecting a card fills "What is this agent for?" with the sample's agent_purpose (editable) and shows the audio player and waveform for that file. Preview playback must not call any provider.
+4. Keep the existing tabs, but:
+   - "Connect agent" shows an Agent ID field and a Connect button labeled "Coming soon". Clicking it explains in one line that live agent connection is on the roadmap.
+   - "Paste system prompt" keeps the prompt editor (used in Phase 3).
+   - "Upload call audio" shows "Coming soon: upload your own recording" (Phase 7 may enable it).
+5. Add an empty "Reference material" box (paste text; Phase 5 adds upload and auto-suggest). Save its text with the experiment.
+6. Replace the hand-picked speech-profile chips with a read-only "Use cases we'll test" area. It shows "Generated from your agent's purpose in a later step" for now.
+7. Add excerpt controls (start offset; 15s / 30s / 60s / rest of recording; default start 0 and 15s). Validate the start, and clamp to the end of the recording.
+
+Done when: I can pick each of the 3 samples, hear it, see its purpose prefilled, and move between all four screens without errors.
