@@ -6,7 +6,7 @@
     { path: "/setup", title: "Set up an eval", index: "01" },
     { path: "/simulation", title: "Simulation", index: "02" },
     { path: "/scorecard", title: "Scorecard", index: "03" },
-    { path: "/comparison", title: "Before & after", index: "04" }
+    { path: "/comparison", title: "Results Summary", index: "04" }
   ];
   const content = document.getElementById("app-content");
   const breadcrumb = document.getElementById("breadcrumb-title");
@@ -371,7 +371,7 @@
         intro: "Run an evaluation to see what to improve in your prompt.",
         action: "Go to Simulation"
       },
-      "/comparison": { title: "Before & after", intro: "", action: "Go to Simulation" }
+      "/comparison": { title: "Results Summary", intro: "", action: "Go to Simulation" }
     }[path];
     content.innerHTML = `<div class="page-heading">
       <div><div class="eyebrow">Evaluation workspace / ${page.index}</div><h1>${escapeHtml(page.title)}</h1>

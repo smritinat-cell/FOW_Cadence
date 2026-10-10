@@ -196,11 +196,11 @@
   function renderDemo(ctx) {
     if (!ctx || location.hash !== "#/comparison") return;
     if (state.demoLoading) {
-      ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Before &amp; after</div><h1>Before &amp; after</h1></div></div><section class="compare-empty" aria-busy="true"><p>Loading comparison…</p></section>`;
+      ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Results Summary</div><h1>Results Summary</h1></div></div><section class="compare-empty" aria-busy="true"><p>Loading comparison…</p></section>`;
       return;
     }
     if (!state.demo) {
-      ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Before &amp; after</div><h1>Before &amp; after</h1></div></div><section class="compare-empty"><p class="error-box" role="alert">We couldn’t load the comparison. Please try again.</p><button type="button" class="button" id="retry-demo-comparison">Try again</button><details><summary>Developer details</summary><p>${fallbackEscape(safeDebugText(state.demoError))}</p></details></section>`;
+      ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Results Summary</div><h1>Results Summary</h1></div></div><section class="compare-empty"><p class="error-box" role="alert">We couldn’t load the comparison. Please try again.</p><button type="button" class="button" id="retry-demo-comparison">Try again</button><details><summary>Developer details</summary><p>${fallbackEscape(safeDebugText(state.demoError))}</p></details></section>`;
       document.getElementById("retry-demo-comparison")?.addEventListener("click", fetchDemo);
       return;
     }
@@ -210,7 +210,7 @@
       <div class="compare-prompt"><p class="compare-prompt-label">${side === "old" ? "Baseline prompt" : "Current system prompt"}</p><p class="compare-prompt-text">${fallbackEscape(prompt)}</p></div>
       <div class="compare-transcript${state.highlights ? "" : " no-highlights"}">${demoTranscript(side === "old" ? "before" : "after")}</div>
     </section>`;
-    ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Before &amp; after</div><h1>Before &amp; after</h1></div></div>
+    ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Results Summary</div><h1>Results Summary</h1></div></div>
       <section class="compare-banner"><div><strong>Developer example only</strong><p>Fixed comparison content is visible only in developer mode.</p></div></section>
       <div class="compare-header-row"><div class="compare-counts"><div class="compare-count removed"><strong>${fallbackEscape(data.counts.removedWords)}</strong><span>Removed words</span></div><div class="compare-count added"><strong>${fallbackEscape(data.counts.addedWords)}</strong><span>Added words</span></div></div><label class="compare-highlight"><input type="checkbox" id="highlight-changes"${state.highlights ? " checked" : ""}> Highlight changes</label></div>
       <div class="compare-columns">${panel("old", "Old transcript", data.baselinePrompt)}${panel("new", "New transcript", ctx.experiment.prompt || "")}</div>
@@ -441,7 +441,7 @@
       if (failedRun || runsState.error) ensureFallback();
       const fallback = (failedRun || runsState.error) ? fallbackFor(ctx, failedRun) : null;
       if (fallback && !simulation?.isSandboxStarting?.() && !runsState.loading) {
-        ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Before &amp; after</div><h1>Before &amp; after</h1></div><div class="step-count">STEP 04 / 04</div></div>
+        ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Results Summary</div><h1>Results Summary</h1></div><div class="step-count">STEP 04 / 04</div></div>
           <section class="compare-test-meta"><div><h2>${esc(ctx, fallback.recording.fileName)}</h2></div></section>${fallbackMarkup(ctx, fallback)}`;
         bindLive(ctx, fallback, failedRun || { sampleId: ctx.experiment.selectedId, recording: fallback.recording }, null);
         return;
@@ -453,7 +453,7 @@
         : runsState.error
           ? `<section class="compare-empty"><p class="error-box" role="alert">We couldn’t load your runs. Please try again.</p><button type="button" class="button" id="retry-runs">Try again</button></section>`
           : `<section class="compare-empty"><p>Compare transcripts before and after a prompt change. Run a baseline and a revised prompt to see the differences here.</p><div class="placeholder-actions"><a class="button" href="#/scorecard">Go to review</a><a class="button secondary" href="#/simulation">Go to Simulation</a></div></section>`;
-      ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Before &amp; after</div><h1>Before &amp; after</h1><p class="page-intro">See how a prompt change affected the same recording.</p></div><div class="step-count">STEP 04 / 04</div></div>${statusMarkup}`;
+      ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Results Summary</div><h1>Results Summary</h1><p class="page-intro">See how a prompt change affected the same recording.</p></div><div class="step-count">STEP 04 / 04</div></div>${statusMarkup}`;
       document.getElementById("retry-runs")?.addEventListener("click", () => simulation?.refreshRuns?.());
       return;
     }
@@ -497,7 +497,7 @@
     const stageText = parent.sandbox?.stage === "reviewing"
       ? "Your recording is complete. Reviewing the response…"
       : parent.sandbox?.stage === "complete" ? "Your test is complete." : "Your test is in progress.";
-    ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Before &amp; after</div><h1>Before &amp; after</h1><p class="page-intro">See how a prompt change affected the same recording.</p></div><div class="step-count">STEP 04 / 04</div></div>
+    ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Results Summary</div><h1>Results Summary</h1><p class="page-intro">See how a prompt change affected the same recording.</p></div><div class="step-count">STEP 04 / 04</div></div>
       <section class="compare-test-meta"><div><h2>${esc(ctx, recordingName(ctx, parent))}</h2><p>${esc(ctx, parent.useCase?.label || "Saved use case")}</p>${currentSampleValue && String(parent.sampleId) !== String(currentSampleValue.id) ? `<p class="compare-history-note">Showing a saved comparison from another use case. Your current setup is unchanged.</p>` : ""}</div><span class="sim-state ${esc(ctx, String(parent.status || "").toLowerCase())}">${esc(ctx, friendlyStatus(parent))}</span></section>
       ${active}
       ${!active && parent.sandbox?.reviewError ? `<p class="review-note">${esc(ctx, "The audio test is saved, but the additional review could not be completed.")}</p>` : ""}
@@ -530,7 +530,7 @@
       after: { rawOutput: pair.new.text, promptUsed: pair.new.prompt, status: "saved", performance: pair.new.performance || pair.new.demoPerformance },
       showResultScores: true
     };
-    ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Before &amp; after</div><h1>Before &amp; after</h1></div><div class="step-count">STEP 04 / 04</div></div>
+    ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Results Summary</div><h1>Results Summary</h1></div><div class="step-count">STEP 04 / 04</div></div>
       <section class="compare-test-meta"><div><h2>${esc(ctx, filename)}</h2></div><span class="sim-state finished">Demo results</span></section>
       ${fallbackMarkup(ctx, comparison, false)}
       <div class="demo-actions"><button type="button" class="button" id="copy-demo-prompt">Copy improved prompt</button><p class="copy-feedback" id="demo-copy-feedback" aria-live="polite"></p></div>`;

@@ -1307,9 +1307,9 @@
                         ${beforeCandidate
                           ? `<button type="button" class="button" id="test-changes" ${hasActiveWork() || evaluationActive || sandboxActive ? "disabled" : ""}>Test these changes</button>`
                           : `<div class="performance-empty"><p>Run with your current prompt in Simulation first.</p><a class="button secondary" href="#/simulation">Go to Simulation</a></div>`}
-                        <a class="button secondary" href="#/comparison">View before &amp; after</a>
+                        <a class="button secondary" href="#/comparison">View results summary</a>
                       </div>
-                      ${sandbox ? `<div class="sandbox-run-status" role="status"><strong>${esc(sandbox.sandbox?.stage === "reviewing" ? "Reviewing the response" : sandboxActive ? simulationStatusText(sandbox.status) : sandbox.sandbox?.stage === "complete" ? "Test complete" : "Test started")}</strong>${sandboxActive ? `<span>${esc(timeLabel(sandbox))}</span><button type="button" class="button secondary small" data-stop-id="${esc(sandbox.id)}">Stop</button>` : ""}<a href="#/comparison">Open before &amp; after</a></div>` : ""}
+                      ${sandbox ? `<div class="sandbox-run-status" role="status"><strong>${esc(sandbox.sandbox?.stage === "reviewing" ? "Reviewing the response" : sandboxActive ? simulationStatusText(sandbox.status) : sandbox.sandbox?.stage === "complete" ? "Test complete" : "Test started")}</strong>${sandboxActive ? `<span>${esc(timeLabel(sandbox))}</span><button type="button" class="button secondary small" data-stop-id="${esc(sandbox.id)}">Stop</button>` : ""}<a href="#/comparison">Open results summary</a></div>` : ""}
                     </div>` : ""}
                   </section>
                   ${evaluation.parseError ? `<div class="error-box">We couldn’t finish this evaluation. Please try again.</div><button type="button" class="button secondary small" id="score-retry" ${hasActiveWork() || !eligibleBaseline(retryBaseline) ? "disabled" : ""}>Try again</button>` : ""}

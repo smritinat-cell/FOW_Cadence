@@ -34,7 +34,7 @@
       runSequence++;
     }
     if (route !== "/simulation" && !hasRun) {
-      ctx.content.innerHTML = `${heading(route === "/comparison" ? "Before & after" : "Review of your agent", route === "/comparison" ? "04" : "03", "Review your completed run.")}<section class="compare-empty"><p>Run the recording in Simulation to view your results.</p><a class="button" href="#/simulation">Go to Simulation</a></section>`;
+      ctx.content.innerHTML = `${heading(route === "/comparison" ? "Results Summary" : "Review of your agent", route === "/comparison" ? "04" : "03", "Review your completed run.")}<section class="compare-empty"><p>Run the recording in Simulation to view your results.</p><a class="button" href="#/simulation">Go to Simulation</a></section>`;
       return;
     }
     if (route === "/comparison") {
@@ -111,10 +111,10 @@
           <div class="score-proposal-controls"><button type="button" class="button secondary small" id="demo-fix">${fixed ? "View completed fix" : "Fix prompt"}</button></div>
           ${ui.edits(review, updates, { showApplyButtons: false })}
           <div class="score-proposal-preview"><div class="score-section-heading"><div><p class="section-label">Prompt changes</p><h2>Current and proposed</h2></div></div>${ui.promptDiff(promptDiff)}
-            <div class="proposal-test-actions"><button type="button" class="button" id="demo-test-changes">${fixed ? "View completed test" : "Test these changes"}</button><a class="button secondary" href="#/comparison">View before &amp; after</a></div>
+            <div class="proposal-test-actions"><button type="button" class="button" id="demo-test-changes">${fixed ? "View completed test" : "Test these changes"}</button><a class="button secondary" href="#/comparison">View results summary</a></div>
           </div>
         </section>
-        ${fixed ? `<section class="score-section demo-fixed-output"><div class="score-section-heading"><div><p class="section-label">Completed demo result</p><h2>Improved response</h2></div><span class="sim-state finished">Complete</span></div><div class="compare-counts"><div class="compare-count removed"><strong>${changes.removedWords}</strong><span>Words removed</span></div><div class="compare-count added"><strong>${changes.addedWords}</strong><span>Words added</span></div></div><pre class="output-block demo-transcript">${escape(pair.new.text)}</pre><div class="demo-actions"><a class="button" href="#/comparison">View before &amp; after</a></div></section>` : ""}
+        ${fixed ? `<section class="score-section demo-fixed-output"><div class="score-section-heading"><div><p class="section-label">Completed demo result</p><h2>Improved response</h2></div><span class="sim-state finished">Complete</span></div><div class="compare-counts"><div class="compare-count removed"><strong>${changes.removedWords}</strong><span>Words removed</span></div><div class="compare-count added"><strong>${changes.addedWords}</strong><span>Words added</span></div></div><pre class="output-block demo-transcript">${escape(pair.new.text)}</pre><div class="demo-actions"><a class="button" href="#/comparison">View results summary</a></div></section>` : ""}
         <details class="score-disclosure"><summary>Run details</summary><p>${filename}</p><pre class="output-block">${escape(pair.old.text)}</pre></details>
       </div></div>`;
     const showCompletedFix = () => {
