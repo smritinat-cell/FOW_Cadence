@@ -16,7 +16,10 @@ omitted.
 The implementation is isolated in `comparison.js`, `comparison.css`,
 `transcript-diff.js` and `comparison-results.json`. The existing shell adds these
 assets and dispatches the `/comparison` route to `CadenceComparison.mount`.
-Setup, simulation, scorecard and the server are unchanged.
+The comparison heading uses the audio filename selected in Step 1. The sample
+API provides that filename, and the setup audio preview displays the same value.
+If loaded responses belong to a different recording, the comparison note
+identifies their source. Simulation and scorecard behavior remain unchanged.
 
 Future result producers can supply the same exported result shape through
 `CadenceComparison.setResult("old", result)` and

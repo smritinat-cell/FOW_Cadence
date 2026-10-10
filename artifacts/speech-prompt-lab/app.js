@@ -119,7 +119,7 @@
       <audio id="sample-audio" controls preload="metadata" src="${escapeHtml(audioUrl)}">
         Your browser does not support audio playback.
       </audio>
-      <div class="field-help">Preview of the selected sample audio.</div>
+      <div class="field-help">${escapeHtml(sample.audio_filename || "Preview of the selected sample audio.")}</div>
     </div>`;
   }
 
@@ -275,7 +275,7 @@
       else link.removeAttribute("aria-current");
     });
     if (route === "/setup") setupScreen();
-    else if (route === "/comparison") CadenceComparison.mount(content);
+    else if (route === "/comparison") CadenceComparison.mount(content, { filename: getCurrentSample()?.audio_filename });
     else unavailableScreen(route);
   }
 

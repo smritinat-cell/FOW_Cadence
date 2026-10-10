@@ -75,6 +75,7 @@
   let comparison = null;
   let demoRequested = false;
   let revision = 0;
+  let selectedFilename = "";
 
   function element(id) { return host.querySelector(`#${id}`); }
   function announce(message) {
@@ -104,11 +105,12 @@
     </section>`;
   }
 
-  function mount(container) {
+  function mount(container, context = {}) {
     host = container;
+    selectedFilename = typeof context.filename === "string" ? context.filename : "";
     host.innerHTML = `<div class="comparison-screen">
       <div class="page-heading"><div><div class="eyebrow">Evaluation workspace / 04</div><h1>Before &amp; after</h1><p class="page-intro">See what changed between the original and revised transcripts.</p></div><div class="step-count">STEP 04 / 04</div></div>
-      <div class="comparison-source"><span class="comparison-source-label">SAVED RESPONSES</span><span id="comparison-source-name">Load a pair of results</span></div>
+      <div class="comparison-source"><span class="comparison-source-label" id="comparison-source-label">SAVED RESPONSES</span><span id="comparison-source-name">Load a pair of results</span></div>
       <div class="comparison-toolbar"><div class="comparison-counts" role="status" aria-live="polite"><span class="change-count removed" id="comparison-removed">Removed from old · —</span><span class="change-count added" id="comparison-added">Added in new · —</span></div><label class="comparison-toggle"><input id="comparison-highlight" type="checkbox" checked>Highlight changes</label></div>
       <div class="response-grid">${card("old", "A", "Old transcript", "BASELINE")}${card("new", "B", "New transcript", "REVISED PROMPT")}</div>
       <p class="comparison-context" id="comparison-context"></p>
@@ -192,9 +194,13 @@
     let context = comparisonContext(records.old, records.new);
     if (ready && !comparison) context += " Highlights unavailable for transcripts this long; raw responses remain available.";
     else if (comparison?.changedTokens === 0) context += " No word or punctuation changes.";
-    element("comparison-context").textContent = context;
     const names = [...new Set([records.old?.source?.name, records.new?.source?.name].filter(Boolean))];
-    element("comparison-source-name").textContent = names.length ? names.join(" ↔ ") : "Two raw model responses";
+    element("comparison-source-label").textContent = selectedFilename ? "SELECTED AUDIO" : "SAVED RESPONSES";
+    element("comparison-source-name").textContent = selectedFilename || (names.length ? names.join(" ↔ ") : "Two raw model responses");
+    if (selectedFilename && names.some(name => name !== selectedFilename)) {
+      context += ` Displayed saved responses are from ${names.join(" and ")}. Load results for ${selectedFilename} to compare the selected audio.`;
+    }
+    element("comparison-context").textContent = context;
     for (const side of ["old", "new"]) {
       const result = records[side];
       element(`${side}-status`).textContent = result ? "Saved response" : "Awaiting result";
