@@ -1,4 +1,4 @@
-# Speech Prompt Lab
+# Accessibility Evaluation
 
 Phase 1 implementation: application shell, navigation, and demo sample picker.
 
