@@ -990,7 +990,7 @@
       ? `<blockquote class="performance-quote">${esc(performance.failureQuote)}</blockquote>`
       : "";
     return `<section class="score-section performance-section">
-      <div class="score-section-heading"><div><p class="section-label">Results from test</p><h2>${esc(sourceFileName(candidate?.recording, sample || { title: candidate?.useCase?.label }))}</h2>${candidate?.useCase?.label ? `<p class="performance-usecase">${esc(candidate.useCase.label)}</p>` : ""}</div>${candidate ? `<span class="sim-state ${candidate.outputPartial ? "partial" : esc(String(candidate.status || "").toLowerCase())}">${esc(candidate.outputPartial ? "Partial result" : simulationStatusText(candidate.status))}</span>` : ""}</div>
+      <div class="score-section-heading"><div><p class="section-label">Results from test</p><h2>${esc(sourceFileName(candidate?.recording, sample || { title: candidate?.useCase?.label }))}</h2>${candidate?.useCase?.label ? `<p class="performance-usecase">${esc(candidate.useCase.label)}</p>` : ""}</div>${candidate ? `<span class="sim-state ${candidate.outputPartial ? "partial" : esc(String(candidate.status || "").toLowerCase())}">${esc(candidate.outputPartial ? "Partial result" : performance.demo ? "Demo scores" : simulationStatusText(candidate.status))}</span>` : ""}</div>
       ${!candidate ? `<div class="performance-empty"><strong>Run with your prompt in Simulation</strong><p>Results are based on a completed run with your current prompt and selected recording.</p><a class="button" href="#/simulation">Go to Simulation</a></div>` :
       !complete ? `<div class="performance-empty"><strong>${esc(simulationStatusText(candidate.status))}</strong><p>${candidate.status === "partial" || candidate.outputPartial ? "This response is partial and can’t be scored as a complete test." : "A completed run is needed to show results."}</p><a class="button secondary" href="#/simulation">Go to Simulation</a></div>` :
         `<div class="performance-grid">
@@ -1034,7 +1034,7 @@
     return findings.filter(finding => typeof finding.quote === "string" && finding.quote.trim() &&
       (addresses.includes(String(finding.id)) || addresses.includes(String(finding.parameter_id))));
   }
-  function scoreEditsMarkup(evaluation, edits) {
+  function scoreEditsMarkup(evaluation, edits, options = {}) {
     if (!edits.length) return `<div class="performance-empty"><p>No prompt changes were suggested for this review.</p></div>`;
     const groups = scoreEditGroups(edits);
     return `<div class="score-edit-groups">${groups.map(group => `<section class="score-edit-group"><h3>${esc(group.label)}</h3><div class="score-edit-list">${group.items.map(edit => {
@@ -1047,7 +1047,7 @@
         ${edit.new_text || edit.newText ? `<div class="score-edit-text"><span>${esc(typeLabel)}</span><pre>${esc(edit.new_text ?? edit.newText)}</pre></div>` : ""}
         ${edit.expected_effect ? `<p><span class="detail-caption">Expected effect</span>${esc(edit.expected_effect)}</p>` : ""}
         ${edit.verify_by ? `<p><span class="detail-caption">Check this by</span>${esc(edit.verify_by)}</p>` : ""}
-        <button type="button" class="button secondary small" data-proposal-edit="${esc(edit.id)}" ${!edit.id || !evaluation.id || hasActiveWork() ? "disabled" : ""}>Apply this change</button>
+        ${options.showApplyButtons !== false ? `<button type="button" class="button secondary small" data-proposal-edit="${esc(edit.id)}" ${!edit.id || !evaluation.id || hasActiveWork() ? "disabled" : ""}>Apply this change</button>` : ""}
       </article>`;
     }).join("")}</div></section>`).join("")}</div>`;
   }
@@ -1752,6 +1752,13 @@
   }
   window.CadenceSimulation = {
     init, render, refreshRuns, onEvaluationLockChange, isEvaluationLocked,
+    resultPerformanceMarkup,
+    scorecardMarkup: {
+      performance: resultPerformanceMarkup,
+      finding: findingMarkup,
+      edits: scoreEditsMarkup,
+      promptDiff: proposalDiffMarkup
+    },
     getRuns: () => state.jobs.slice(),
     getRunsState: () => ({ loading: state.historyLoading, error: state.historyFailed ? state.error : "" }),
     isSandboxStarting: () => state.submittingSandbox,

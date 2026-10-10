@@ -37,7 +37,7 @@ function harness({ before = pair.old.text, after = pair.new.text, failed = false
   vm.runInNewContext(code, sandbox);
   const ctx = { content, samples: [{ id: sample, audio_filename: filename }], experiment: { selectedId: sample, prompt: 'Current draft' } };
   sandbox.window.CadenceComparison.render(ctx);
-  return { content, requests, copied, elements };
+  return { content, requests, copied, elements, api: sandbox.window.CadenceComparison, ctx };
 }
 async function settle() { for (let i = 0; i < 4; i++) await new Promise(resolve => setImmediate(resolve)); }
 
@@ -99,4 +99,25 @@ test('run history errors can display the saved comparison for the selected recor
   const app = harness({ noSandbox: true, historyError: true });
   await settle();
   assert.match(app.content.innerHTML, /Showing earlier results for this recording/);
+});
+
+test('saved results retain each run’s own accessibility metrics on the final page', () => {
+  const app = harness({ noSandbox: true });
+  const scoredPair = {
+    old: { ...pair.old, performance: { accessibilityScore: 46, keyItemsCaptured: 2, keyItemsTotal: 5, wordAccuracy: 52 } },
+    new: { ...pair.new, performance: { accessibilityScore: 84, keyItemsCaptured: 4, keyItemsTotal: 5, wordAccuracy: 88 } }
+  };
+  app.api.renderSaved(app.ctx, scoredPair, 'F_0101_10y4m_1.wav');
+  assert.equal((app.content.innerHTML.match(/class="compare-result-score"/g)||[]).length, 2);
+  assert.match(app.content.innerHTML, /<strong>46<small>\/ 100<\/small><\/strong>/);
+  assert.match(app.content.innerHTML, /<strong>84<small>\/ 100<\/small><\/strong>/);
+  assert.match(app.content.innerHTML, /2 of 5/);
+  assert.match(app.content.innerHTML, /4 of 5/);
+  assert.match(app.content.innerHTML, /52%/);
+  assert.match(app.content.innerHTML, /88%/);
+  assert.equal(app.requests.length, 0);
+  const unscoredPair = { old: { ...pair.old, demoPerformance: undefined }, new: { ...pair.new, demoPerformance: undefined } };
+  app.api.renderSaved(app.ctx, unscoredPair);
+  assert.equal((app.content.innerHTML.match(/Not enough information to score this yet/g)||[]).length, 2);
+  assert.doesNotMatch(app.content.innerHTML, /<strong>(46|84)<small>/);
 });

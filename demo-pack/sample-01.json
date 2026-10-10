@@ -1,6 +1,6 @@
 {
   "id": "sample-01",
-  "title": "Sample 1",
+  "title": "Stuttering and repetitions",
   "use_case_label": "Teen pre-visit intake",
   "use_case_summary": "Collect the reason for visit, symptoms, medications and allergies from adolescent patients before an appointment.",
   "agent_name": "Riverbend Teen Intake Assistant",

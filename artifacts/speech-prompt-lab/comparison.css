@@ -60,3 +60,12 @@
 .demo-fixed-output { display: grid; gap: 16px; margin-top: 18px; }
 .demo-mode-badge { padding: 5px 10px; border-radius: 6px; background: var(--brand-pale); color: var(--brand-dark); font: 600 11px var(--font-ui); }
 @media (max-width: 760px) { .demo-stage-grid { grid-template-columns: minmax(0, 1fr); } }
+.compare-result-score { display:grid; gap:12px; margin:0 22px 18px; padding:18px; border:1px solid #d8e7dd; border-radius:12px; background:#f4f8f4; }
+.compare-result-score > strong { color:#41675a; font:700 25px/1.2 var(--font-display); }
+.compare-result-score > strong small { margin-left:5px; color:#788680; font:12px var(--font-ui); }
+.compare-result-metrics { display:grid; grid-template-columns:1fr 1fr; gap:14px; padding-top:12px; border-top:1px solid #d8e7dd; }
+.compare-result-metrics > div { display:grid; gap:6px; }
+.compare-result-metrics span { color:#788680; font:10px var(--font-mono); text-transform:uppercase; }
+.compare-result-metrics b { color:#344e49; font:700 18px var(--font-display); }
+.compare-panel.old .compare-result-score { border-color:#f2d1cd; background:#fff6f4; }
+.compare-panel.old .compare-result-score > strong { color:var(--brand-dark); }

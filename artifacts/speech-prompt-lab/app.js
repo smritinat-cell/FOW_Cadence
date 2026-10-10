@@ -218,8 +218,8 @@
             <svg viewBox="0 0 20 20" fill="none"><path d="M3.5 8v4M7 5.5v9M10.5 3.5v13M14 6.5v7M17 8.5v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
           </span>
           <span class="sample-copy">
-            <span class="sample-title">${escapeHtml(card.agentName)}</span>
-            ${placeholder ? "" : `<span class="sample-profile">${escapeHtml(card.title)}</span>`}
+            <span class="sample-title">${escapeHtml(card.title)}</span>
+            ${card.sample?.audio_filename ? `<span class="sample-profile">${escapeHtml(card.sample.audio_filename)}</span>` : ""}
             ${profileTags.length ? `<span class="profile-tags" aria-label="Speech profile tags">${profileTags}</span>` : ""}
           </span>
         </button>
@@ -278,7 +278,7 @@
     <div class="layout-grid">
       <div class="stack">
           <section class="panel" aria-labelledby="samples-title">
-          <div class="panel-header"><div><h2 class="section-title" id="samples-title">Step 2 · Choose a recording</h2><p class="section-subtitle">Selected automatically for this use case. You can choose a different recording.</p></div><span class="tiny-label">RECORDINGS</span></div>
+          <div class="panel-header"><div><h2 class="section-title" id="samples-title">Step 2 · Choose an audio clip to test with</h2></div><span class="tiny-label">RECORDINGS</span></div>
           ${samplesLoading ? '<p class="load-state" role="status" aria-busy="true">Loading recordings…</p>' : ""}
           ${samplesError ? `<p class="load-state error" role="alert">${escapeHtml(samplesError)} <button type="button" class="button secondary small" id="retry-samples">Try again</button></p>` : ""}
           ${!samplesLoading && !samplesError && samples.length === 0 ? '<p class="load-state" role="status">No recordings are available.</p>' : ""}

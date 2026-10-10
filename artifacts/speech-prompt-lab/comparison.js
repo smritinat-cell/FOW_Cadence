@@ -84,10 +84,15 @@
   }
   function fallbackMarkup(ctx, comparison, showNote = true) {
     const changes = transcriptChanges(comparison);
+    const beforeScore = comparison.before?.performance?.accessibilityScore;
+    const afterScore = comparison.after?.performance?.accessibilityScore;
+    const scoreChange = comparison.showResultScores && Number.isFinite(beforeScore) && Number.isFinite(afterScore)
+      ? `<div class="compare-count added"><strong>${esc(ctx, metricDeltaText(afterScore - beforeScore))}</strong><span>Accessibility score</span></div>` : "";
     return `<div class="compare-live-results">${showNote ? '<p class="compare-fallback-note" role="status">Showing earlier results for this recording.</p>' : ""}
       <div class="compare-header-row"><div class="compare-counts" aria-label="Transcript changes">
         <div class="compare-count removed"><strong>${esc(ctx, changes?.removedWords ?? "—")}</strong><span>Words removed</span></div>
         <div class="compare-count added"><strong>${esc(ctx, changes?.addedWords ?? "—")}</strong><span>Words added</span></div>
+        ${scoreChange}
       </div><label class="compare-highlight"><input type="checkbox" id="highlight-changes"${state.highlights ? " checked" : ""}> Highlight changes</label></div>
       <div class="compare-columns">${transcriptPanel(ctx, comparison, "before")}${transcriptPanel(ctx, comparison, "after")}</div></div>`;
   }
@@ -303,8 +308,14 @@
     const transcript = transcriptText(comparison, side);
     const prompt = typeof run?.promptUsed === "string" ? run.promptUsed : "";
     const title = before ? "Before" : "After";
+    const performance = run?.performance || {};
+    const resultScore = comparison.showResultScores ? `<div class="compare-result-score">
+      <span class="section-label">Accessibility score</span><strong>${esc(ctx, metricText(performance.accessibilityScore))}${typeof performance.accessibilityScore === "number" && Number.isFinite(performance.accessibilityScore) ? "<small>/ 100</small>" : ""}</strong>
+      <div class="compare-result-metrics"><div><span>Key items captured</span><b>${Number.isInteger(performance.keyItemsCaptured) && Number.isInteger(performance.keyItemsTotal) ? `${esc(ctx, performance.keyItemsCaptured)} of ${esc(ctx, performance.keyItemsTotal)}` : "—"}</b></div><div><span>Word accuracy</span><b>${typeof performance.wordAccuracy === "number" && Number.isFinite(performance.wordAccuracy) ? esc(ctx, metricText(performance.wordAccuracy, "%")) : "—"}</b></div></div>
+    </div>` : "";
     return `<section class="compare-panel ${before ? "old" : "new"}">
       <div class="compare-panel-head"><div><p class="compare-response-label">${before ? "Original response" : "Updated response"}</p><h2>${title}</h2></div><span class="sim-state ${esc(ctx, String(run?.status || "").toLowerCase())}">${esc(ctx, friendlyStatus(run))}</span></div>
+      ${resultScore}
       <details class="compare-prompt"><summary class="compare-prompt-label">System prompt used</summary><p class="compare-prompt-text">${esc(ctx, prompt)}</p></details>
       <div class="compare-transcript${state.highlights ? "" : " no-highlights"}" tabindex="0" aria-label="${title} transcript">${transcriptSegments(ctx, comparison, side)}</div>
       <div class="compare-actions"><button type="button" class="button secondary" data-copy-transcript="${side}">Copy response</button><button type="button" class="button secondary" data-download-transcript="${side}">Download TXT</button></div>
@@ -515,8 +526,9 @@
   }
   function renderSaved(ctx, pair, filename = pair.old.source.name) {
     const comparison = {
-      before: { rawOutput: pair.old.text, promptUsed: pair.old.prompt, status: "saved" },
-      after: { rawOutput: pair.new.text, promptUsed: pair.new.prompt, status: "saved" }
+      before: { rawOutput: pair.old.text, promptUsed: pair.old.prompt, status: "saved", performance: pair.old.performance || pair.old.demoPerformance },
+      after: { rawOutput: pair.new.text, promptUsed: pair.new.prompt, status: "saved", performance: pair.new.performance || pair.new.demoPerformance },
+      showResultScores: true
     };
     ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Before &amp; after</div><h1>Before &amp; after</h1></div><div class="step-count">STEP 04 / 04</div></div>
       <section class="compare-test-meta"><div><h2>${esc(ctx, filename)}</h2></div><span class="sim-state finished">Demo results</span></section>

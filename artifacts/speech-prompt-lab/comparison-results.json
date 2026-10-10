@@ -27,6 +27,16 @@
     "timing": {
       "cloud_seconds": 136.1643090419966,
       "total_seconds": 136.74909774999833
+    },
+    "demoPerformance": {
+      "demo": true,
+      "version": "accessibility-1",
+      "accessibilityScore": 46,
+      "keyItemsCaptured": 2,
+      "keyItemsTotal": 5,
+      "keyItemsPercent": 40,
+      "wordAccuracy": 52,
+      "outcome": "Some key items missed"
     }
   },
   "new": {
@@ -57,6 +67,16 @@
     "timing": {
       "cloud_seconds": 136.1447951250011,
       "total_seconds": 136.51923920799163
+    },
+    "demoPerformance": {
+      "demo": true,
+      "version": "accessibility-1",
+      "accessibilityScore": 84,
+      "keyItemsCaptured": 4,
+      "keyItemsTotal": 5,
+      "keyItemsPercent": 80,
+      "wordAccuracy": 88,
+      "outcome": "Some key items missed"
     }
   }
 }

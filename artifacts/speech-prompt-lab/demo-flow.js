@@ -84,11 +84,46 @@
       return;
     }
     const changes = window.TranscriptDiff.compare(pair.old.text, pair.new.text);
-    ctx.content.innerHTML = `${heading("Review of your agent", "03", "Review the transcript and improve its wording.")}${meta}
-      <div class="demo-stage-grid">${transcript("Original response", pair.old.text)}<section class="score-section"><p class="section-label">Prompt improvement</p><h2>Make the transcript clearer</h2><p class="demo-review-copy">Remove hesitation fillers and repeated wording while preserving the speaker’s meaning. Use the reference vocabulary for unfamiliar terms.</p><button type="button" class="button" id="demo-fix">${fixed ? "View completed fix" : "Fix prompt"}</button>
-      ${fixed ? `<div class="demo-completed" role="status"><span class="sim-state finished">Completed demo result</span><div class="compare-counts"><div class="compare-count removed"><strong>${changes.removedWords}</strong><span>Words removed</span></div><div class="compare-count added"><strong>${changes.addedWords}</strong><span>Words added</span></div></div></div>` : ""}</section></div>
-      ${fixed ? `<div class="demo-fixed-output">${transcript("Improved response", pair.new.text)}<details class="score-disclosure"><summary>Improved system prompt</summary><pre class="output-block">${escape(pair.new.prompt)}</pre></details><div class="demo-actions"><a class="button" href="#/comparison">View before &amp; after</a></div></div>` : ""}`;
-    document.getElementById("demo-fix")?.addEventListener("click", () => { fixed = true; draw(ctx, route); document.querySelector(".demo-fixed-output")?.scrollIntoView({ behavior: "smooth", block: "start" }); });
+    const ui = window.CadenceSimulation.scorecardMarkup;
+    const result = fixed ? pair.new : pair.old;
+    const findings = [
+      { id: "repetition", severity: "medium", parameterLabel: "Speech patterns", title: "Repeated wording obscures the completed phrase", quote: "new, new, um, new, um, books", why_it_matters: "Hesitation fillers and repetitions make the response harder to read.", prompt_coverage: "none" },
+      { id: "vocabulary", severity: "medium", parameterLabel: "Vocabulary and uncertainty", title: "Unfamiliar terms need clearer guidance", quote: "Nin, for my Nin Ten, Nin Ten", why_it_matters: "Reference vocabulary can help identify unfamiliar terms while preserving uncertainty.", prompt_coverage: "none" }
+    ].filter(finding => pair.old.text.includes(finding.quote));
+    const paragraphs = pair.new.prompt.split(/\r?\n\r?\n/);
+    const updates = [
+      { id: "speech-patterns", category: "Speech patterns", type: "append", addresses: ["repetition"], rationale: "Preserve the completed wording when the speaker hesitates or repeats a word.", new_text: paragraphs.slice(2, 4).join("\n\n"), expected_effect: "A clearer transcript with meaningful short responses retained.", verify_by: "Compare the original and improved wording." },
+      { id: "vocabulary", category: "Vocabulary and uncertainty", type: "append", addresses: ["vocabulary"], rationale: "Use the saved reference vocabulary to help with unfamiliar terms.", new_text: paragraphs[4], expected_effect: "Terms follow the audio and context, with uncertainty preserved.", verify_by: "Check unfamiliar terms against the recording." }
+    ];
+    const review = { id: "saved-demo-review", verifiedFindings: findings, promptUpdates: updates };
+    const accessibility = ui.performance({
+      status: "finished", rawOutput: result.text, performance: result.performance || result.demoPerformance,
+      recording: { fileName: selectedFilename },
+      useCase: { label: selected?.use_case_label || "" }
+    }, selected);
+    const promptDiff = [{ type: "removed", text: pair.old.prompt }, { type: "added", text: pair.new.prompt }];
+    ctx.content.innerHTML = `<div class="demo-scorecard">${heading("Review of your agent", "03", "What we found in the transcript, and how to improve your prompt.")}
+      <section class="scorecard-toolbar panel"><div class="scorecard-select"><label for="demo-review-select">Saved reviews</label><select id="demo-review-select"><option>${escape(selected?.title || "Selected recording")} · Complete</option></select></div></section>
+      <div class="scorecard-review-heading"><div><p class="section-label">Your saved review</p><p>${filename} · ${escape(selected?.use_case_label || "")}</p></div><span class="sim-state finished">Complete</span></div>
+      <div class="scorecard-content">${accessibility}
+        <section class="score-section review-findings"><p class="review-summary-copy">Review how the agent handles speech patterns and unfamiliar terms.</p><div class="score-section-heading"><div><p class="section-label">Verified findings</p><h2>What to improve</h2></div></div><div class="finding-list">${findings.map(ui.finding).join("")}</div></section>
+        <section class="score-section"><div class="score-section-heading"><div><p class="section-label">Recommended system prompt edits</p><h2>Make the next test clearer</h2></div></div>
+          <div class="score-proposal-controls"><button type="button" class="button secondary small" id="demo-fix">${fixed ? "View completed fix" : "Fix prompt"}</button></div>
+          ${ui.edits(review, updates, { showApplyButtons: false })}
+          <div class="score-proposal-preview"><div class="score-section-heading"><div><p class="section-label">Prompt changes</p><h2>Current and proposed</h2></div></div>${ui.promptDiff(promptDiff)}
+            <div class="proposal-test-actions"><button type="button" class="button" id="demo-test-changes">${fixed ? "View completed test" : "Test these changes"}</button><a class="button secondary" href="#/comparison">View before &amp; after</a></div>
+          </div>
+        </section>
+        ${fixed ? `<section class="score-section demo-fixed-output"><div class="score-section-heading"><div><p class="section-label">Completed demo result</p><h2>Improved response</h2></div><span class="sim-state finished">Complete</span></div><div class="compare-counts"><div class="compare-count removed"><strong>${changes.removedWords}</strong><span>Words removed</span></div><div class="compare-count added"><strong>${changes.addedWords}</strong><span>Words added</span></div></div><pre class="output-block demo-transcript">${escape(pair.new.text)}</pre><div class="demo-actions"><a class="button" href="#/comparison">View before &amp; after</a></div></section>` : ""}
+        <details class="score-disclosure"><summary>Run details</summary><p>${filename}</p><pre class="output-block">${escape(pair.old.text)}</pre></details>
+      </div></div>`;
+    const showCompletedFix = () => {
+      fixed = true;
+      draw(ctx, route);
+      document.querySelector(".demo-fixed-output")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    document.getElementById("demo-fix")?.addEventListener("click", showCompletedFix);
+    document.getElementById("demo-test-changes")?.addEventListener("click", showCompletedFix);
   }
   function render(ctx, route) {
     ctx.content.innerHTML = `<section class="compare-empty" aria-busy="true"><p>Loading demo results…</p></section>`;

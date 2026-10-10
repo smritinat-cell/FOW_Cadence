@@ -1,10 +1,10 @@
 {
   "id": "sample-02",
-  "title": "Sample 2",
+  "title": "Slower speech",
   "use_case_label": "Child symptom check-in",
   "use_case_summary": "Run a short, child-friendly wellness and symptom check-in with a parent or caregiver able to join.",
   "agent_name": "Maple Kids Symptom Check-In",
-  "speech_profile": "Child \u00b7 Age 10y4m",
+  "speech_profile": "Child · Age 10y4m",
   "speech_profile_tags": [
     "Child",
     "Age 10y4m"

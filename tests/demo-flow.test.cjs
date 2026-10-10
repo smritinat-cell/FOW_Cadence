@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const pair = require('../artifacts/speech-prompt-lab/comparison-results.json');
 const { compare } = require('../artifacts/speech-prompt-lab/transcript-diff.js');
 const code = fs.readFileSync(require.resolve('../artifacts/speech-prompt-lab/demo-flow.js'),'utf8');
+const simulationCode = fs.readFileSync(require.resolve('../artifacts/speech-prompt-lab/simulation.js'),'utf8');
 const settle = async () => { for(let i=0;i<3;i++) await new Promise(resolve=>setImmediate(resolve)); };
 
 test('the demo stages share saved text and Fix reveals the completed output without API calls', async()=>{
@@ -14,6 +15,7 @@ test('the demo stages share saved text and Fix reveals the completed output with
     querySelector(){return {scrollIntoView(){}};}
   },async fetch(url){requests.push(url);assert.equal(url,'./comparison-results.json');return {ok:true,json:async()=>pair};}};
   sandbox.window={setTimeout(fn,delay){timers.push({fn,delay});},TranscriptDiff:{compare},CadenceComparison:{renderSaved(_,data,filename){assert.equal(data,pair);assert.equal(filename,'F_0101_10y4m_1.wav');content.innerHTML='Comparison';}}};
+  vm.runInNewContext(simulationCode,sandbox);
   vm.runInNewContext(code,sandbox);
   let saves=0;
   const demo=sandbox.window.CadenceDemoFlow,ctx={content,experiment:{selectedId:'sample-02'},samples:[{id:'sample-02',audio_filename:'F_0101_10y4m_1.wav'}],saveExperiment(){saves++;}};
@@ -59,8 +61,22 @@ test('the demo stages share saved text and Fix reveals the completed output with
   demo.render(ctx,'/simulation');await settle();
   assert.match(content.innerHTML,/<textarea\b[^>]*id="demo-system-prompt"[^>]*><\/textarea>/);
   sandbox.location.hash='#/scorecard';demo.render(ctx,'/scorecard');await settle();
+  assert.match(content.innerHTML,/performance-primary"><span>Accessibility score/);
+  assert.match(content.innerHTML,/Key items captured/);
+  assert.match(content.innerHTML,/Word accuracy/);
+  assert.match(content.innerHTML,/<strong>46<small>\/ 100<\/small><\/strong>/);
+  assert.match(content.innerHTML,/Demo scores/);
+  assert.doesNotMatch(content.innerHTML,/Not enough information to score this yet/);
+  assert.ok(content.innerHTML.indexOf('Accessibility score')<content.innerHTML.indexOf('What to improve'));
+  assert.match(content.innerHTML,/Verified findings/);
+  assert.match(content.innerHTML,/Recommended system prompt edits/);
+  assert.match(content.innerHTML,/Current and proposed/);
+  assert.match(content.innerHTML,/prompt-diff-removed/);
+  assert.match(content.innerHTML,/prompt-diff-added/);
+  assert.doesNotMatch(content.innerHTML,/data-proposal-edit/);
   assert.doesNotMatch(content.innerHTML,/Completed demo result/);
   elements.get('demo-fix').handlers.click();
+  assert.match(content.innerHTML,/<strong>84<small>\/ 100<\/small><\/strong>/);
   assert.match(content.innerHTML,/Completed demo result/);
   assert.match(content.innerHTML,/Nintendo sixty-four/);
   assert.match(content.innerHTML,/Produce a readable English transcript of the audio/);
@@ -68,4 +84,14 @@ test('the demo stages share saved text and Fix reveals the completed output with
   sandbox.location.hash='#/comparison';demo.render(ctx,'/comparison');await settle();
   assert.equal(content.innerHTML,'Comparison');
   assert.deepEqual(requests,['./comparison-results.json']);
+});
+
+test('demo scores use Smriti’s same calculation and stay separate from actual results', () => {
+  for (const result of [pair.old, pair.new]) {
+    assert.equal(result.performance, undefined);
+    const metrics = result.demoPerformance;
+    assert.equal(metrics.demo, true);
+    assert.equal(metrics.keyItemsPercent, 100 * metrics.keyItemsCaptured / metrics.keyItemsTotal);
+    assert.equal(metrics.accessibilityScore, Math.round((metrics.keyItemsPercent + metrics.wordAccuracy) / 2));
+  }
 });

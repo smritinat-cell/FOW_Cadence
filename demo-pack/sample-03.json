@@ -1,10 +1,10 @@
 {
   "id": "sample-03",
-  "title": "Sample 3",
+  "title": "Longer pauses",
   "use_case_label": "After-hours nurse line",
   "use_case_summary": "Gather symptom details from adolescent callers after hours and route them to emergency care, a same-night nurse callback, or a next-day appointment.",
   "agent_name": "Harbor Pediatrics After-Hours Nurse Line",
-  "speech_profile": "Child \u00b7 Age 10y0m",
+  "speech_profile": "Child · Age 10y0m",
   "speech_profile_tags": [
     "Child",
     "Age 10y0m"
