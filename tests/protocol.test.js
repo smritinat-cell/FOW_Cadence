@@ -12,6 +12,21 @@ const { getDemoComparison } = require("../lib/comparison");
 // This process never uses the real provider credential or makes real provider calls.
 delete process.env.ULTRAVOX_API_KEY;
 
+test("agent setup has exactly two linked tabs and no recording-upload markup or styling", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "artifacts", "speech-prompt-lab", "app.js"), "utf8");
+  const styles = fs.readFileSync(path.join(__dirname, "..", "artifacts", "speech-prompt-lab", "styles.css"), "utf8");
+  const tabs = [...app.matchAll(/id="tab-([^"]+)" role="tab"[^>]*aria-controls="([^"]+)"/g)];
+  assert.deepEqual(tabs.map(match => [match[1], match[2]]), [
+    ["connect", "panel-connect"], ["prompt", "panel-prompt"]
+  ]);
+  const panels = [...app.matchAll(/id="panel-([^"]+)" role="tabpanel" aria-labelledby="([^"]+)"/g)];
+  assert.deepEqual(panels.map(match => [match[1], match[2]]), [
+    ["connect", "tab-connect"], ["prompt", "tab-prompt"]
+  ]);
+  assert.doesNotMatch(app, /tab-upload|panel-upload|activeAgentTab\s*===?\s*["']upload["']|Upload call audio|Coming soon: upload your own recording|type=["']file["']/i);
+  assert.doesNotMatch(styles, /\.usecases\b|\.usecase-mark\b|\.coming-message\b/);
+});
+
 test("missing key gives a specific safe error", () => {
   assert.throws(requireKey, error => error.code === "MISSING_KEY");
 });

@@ -258,7 +258,6 @@
         <div class="tab-list" role="tablist" aria-label="Agent setup method">
           <button class="tab-button" id="tab-connect" role="tab" aria-selected="${activeAgentTab === "connect"}" tabindex="${activeAgentTab === "connect" ? 0 : -1}" aria-controls="panel-connect" type="button">Agent connection</button>
           <button class="tab-button" id="tab-prompt" role="tab" aria-selected="${activeAgentTab === "prompt"}" tabindex="${activeAgentTab === "prompt" ? 0 : -1}" aria-controls="panel-prompt" type="button">Paste system prompt</button>
-          <button class="tab-button" id="tab-upload" role="tab" aria-selected="${activeAgentTab === "upload"}" tabindex="${activeAgentTab === "upload" ? 0 : -1}" aria-controls="panel-upload" type="button">Call recording</button>
         </div>
         <div class="tab-panel" id="panel-connect" role="tabpanel" aria-labelledby="tab-connect"${activeAgentTab === "connect" ? "" : " hidden"}>
           <div class="connect-row"><div class="field"><label for="agent-id">Agent ID</label><input id="agent-id" type="text" value="${escapeHtml(experiment.agentId)}" placeholder="Enter an agent ID"></div><button class="button secondary" id="connect-button" type="button" disabled>Agent connection isn’t available yet.</button></div>
@@ -266,9 +265,6 @@
         </div>
         <div class="tab-panel" id="panel-prompt" role="tabpanel" aria-labelledby="tab-prompt"${activeAgentTab === "prompt" ? "" : " hidden"}>
           <div class="field"><label for="prompt-input">System prompt</label><textarea id="prompt-input" placeholder="Paste the agent's system prompt…">${escapeHtml(experiment.prompt)}</textarea></div>
-        </div>
-        <div class="tab-panel" id="panel-upload" role="tabpanel" aria-labelledby="tab-upload"${activeAgentTab === "upload" ? "" : " hidden"}>
-          <div class="usecases"><span class="usecase-mark" aria-hidden="true">i</span><span>Choose from the recordings available below.</span></div>
         </div>
       </section>
     </section>
