@@ -1,6 +1,8 @@
 {
   "id": "sample-02",
   "title": "Sample 2",
+  "use_case_label": "Child symptom check-in",
+  "use_case_summary": "Run a short, child-friendly wellness and symptom check-in with a parent or caregiver able to join.",
   "agent_name": "Maple Kids Symptom Check-In",
   "speech_profile": "Child · Male · Age 9y10m · Higher pitch · Short and fragmented utterances · Unclear articulation of longer words · Parent or caregiver may speak in background",
   "speech_profile_tags": [

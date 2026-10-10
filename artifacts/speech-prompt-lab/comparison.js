@@ -1,223 +1,533 @@
-/* Saved response comparison. Provider execution belongs to the simulation flow. */
-(function (root) {
+(() => {
   "use strict";
-  const MAX_TEXT = 100000;
-  const MAX_ALIGNMENT_CELLS = 16000000;
-  const diff = typeof module !== "undefined" && module.exports
-    ? require("./transcript-diff.js") : root.TranscriptDiff;
 
-  function normalizeResult(raw) {
-    if (!raw || typeof raw !== "object" || Array.isArray(raw) || typeof raw.text !== "string") {
-      throw new Error('Choose a result JSON with a "text" field, or a plain TXT transcript.');
+  const state = {
+    demo: null,
+    demoLoading: false,
+    demoError: "",
+    fallback: null,
+    fallbackRequested: false,
+    livePairs: new Map(),
+    liveLoading: new Set(),
+    liveErrors: new Map(),
+    requestedSignatures: new Map(),
+    highlights: true,
+    confirmParentId: null,
+    copyFeedback: "",
+    submittingStop: false
+  };
+  let latestContext = null;
+  let unsubscribeRuns = null;
+  const transcriptDiffs = new WeakMap();
+
+  function debugMode() {
+    return new URLSearchParams(location.search).get("debug") === "1";
+  }
+  function fallbackEscape(value) {
+    return String(value ?? "").replace(/[&<>"']/g, character => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    })[character]);
+  }
+  function esc(ctx, value) {
+    return typeof ctx.escapeHtml === "function" ? ctx.escapeHtml(value) : fallbackEscape(value);
+  }
+  function safeDebugText(value) {
+    return String(value ?? "")
+      .replace(/https?:\/\/[^\s"'<>]+/gi, "[hidden link]")
+      .replace(/(["']?(?:api[_-]?key|secret|token)["']?\s*[:=]\s*["']?)[^"'\s,;}]+/gi, "$1[hidden]")
+      .replace(/(["']?authorization["']?\s*[:=]\s*["']?)(?:bearer\s+)?[^"'\s,;}]+/gi, "$1[hidden]")
+      .replace(/\bbearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [hidden]");
+  }
+  function displayDate(value) {
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return "Date unavailable";
+    const time = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(date);
+    return date.toDateString() === new Date().toDateString()
+      ? `Today, ${time}`
+      : new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" }).format(date);
+  }
+  function runs() {
+    return window.CadenceSimulation?.getRuns?.() || [];
+  }
+  function currentSample(ctx) {
+    return (ctx.samples || []).find(sample => String(sample.id) === String(ctx.experiment.selectedId)) || null;
+  }
+  function recordingName(ctx, run) {
+    const sample = (ctx.samples || []).find(sample => String(sample.id) === String(run.sampleId));
+    const filename = sample?.audio_filename || run.recording?.fileName;
+    return typeof filename === "string" && filename
+      ? filename.split(/[\\/]/).pop().replace(/_\d{13}(?=\.[^.]+$)/, "")
+      : run.recording?.label || "Selected recording";
+  }
+  function ensureFallback() {
+    if (state.fallbackRequested) return;
+    state.fallbackRequested = true;
+    fetch("./comparison-results.json")
+      .then(async response => {
+        if (!response.ok) throw new Error("Unavailable");
+        const pair = await response.json();
+        if (typeof pair.old?.text !== "string" || typeof pair.new?.text !== "string" ||
+            pair.old.source?.name !== pair.new.source?.name || !pair.old.source?.name) return;
+        state.fallback = {
+          before: { rawOutput: pair.old.text, promptUsed: pair.old.prompt || "", status: "saved" },
+          after: { rawOutput: pair.new.text, promptUsed: pair.new.prompt || "", status: "saved" },
+          recording: { fileName: pair.old.source.name }
+        };
+      })
+      .catch(() => {})
+      .finally(renderLatest);
+  }
+  function fallbackFor(ctx, run) {
+    if (!state.fallback) return null;
+    const name = run ? recordingName(ctx, run) : currentSample(ctx)?.audio_filename;
+    return name === state.fallback.recording.fileName ? state.fallback : null;
+  }
+  function fallbackMarkup(ctx, comparison, showNote = true) {
+    const changes = transcriptChanges(comparison);
+    return `<div class="compare-live-results">${showNote ? '<p class="compare-fallback-note" role="status">Showing earlier results for this recording.</p>' : ""}
+      <div class="compare-header-row"><div class="compare-counts" aria-label="Transcript changes">
+        <div class="compare-count removed"><strong>${esc(ctx, changes?.removedWords ?? "—")}</strong><span>Words removed</span></div>
+        <div class="compare-count added"><strong>${esc(ctx, changes?.addedWords ?? "—")}</strong><span>Words added</span></div>
+      </div><label class="compare-highlight"><input type="checkbox" id="highlight-changes"${state.highlights ? " checked" : ""}> Highlight changes</label></div>
+      <div class="compare-columns">${transcriptPanel(ctx, comparison, "before")}${transcriptPanel(ctx, comparison, "after")}</div></div>`;
+  }
+  function newestFirst(a, b) {
+    return String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
+  }
+  function findSandbox(ctx, allRuns = runs()) {
+    const sample = currentSample(ctx);
+    const candidates = allRuns.filter(job => job?.kind === "candidate" && job.sandbox).sort(newestFirst);
+    const sameSample = sample ? candidates.filter(job => String(job.sampleId) === String(sample.id)) : [];
+    const parent = (sameSample.length ? sameSample : candidates)[0] || null;
+    const beforeId = parent?.sandbox?.beforeRunId || parent?.beforeRunId;
+    const before = beforeId ? allRuns.find(job => String(job.id) === String(beforeId)) || null : null;
+    const child = parent ? allRuns.find(job => job.kind === "evaluation" && job.reviewStage === "after" &&
+      String(job.parentRunId) === String(parent.id)) || null : null;
+    return { parent, before, child };
+  }
+  function pairKey(before, after) {
+    return before && after ? `${before.id}::${after.id}` : "";
+  }
+  function friendlyLiveError() {
+    return "We couldn’t load the comparison. Please try again.";
+  }
+  function ensureLiveComparison(before, after, child, retry = false) {
+    const key = pairKey(before, after);
+    if (!key || state.liveLoading.has(key)) return;
+    const signature = `${key}|${after.status}|${after.sandbox?.stage}|${after.sandbox?.audioFinished}|${after.sandbox?.afterEvaluationId}|${child?.status || ""}`;
+    if (!retry && state.requestedSignatures.get(key) === signature) return;
+    state.requestedSignatures.set(key, signature);
+    state.liveErrors.delete(key);
+    state.liveLoading.add(key);
+    const query = new URLSearchParams({ beforeId: String(before.id), afterId: String(after.id) });
+    fetch(`/api/comparisons?${query.toString()}`, { credentials: "include" })
+      .then(async response => {
+        let body = null;
+        try { body = await response.json(); } catch { body = null; }
+        if (!response.ok || !body || typeof body !== "object") throw new Error("Comparison unavailable.");
+        state.livePairs.set(key, body.comparison || body);
+      })
+      .catch(() => state.liveErrors.set(key, friendlyLiveError()))
+      .finally(() => {
+        state.liveLoading.delete(key);
+        renderLatest();
+      });
+  }
+  function notifyFromRuns() {
+    renderLatest();
+  }
+  function renderLatest() {
+    if (!latestContext || location.hash !== "#/comparison") return;
+    if (debugMode()) renderDemo(latestContext);
+    else renderLive(latestContext);
+  }
+
+  function demoValidate(data) {
+    if (!data || data.mode !== "demo" || typeof data.before !== "string" || typeof data.after !== "string" ||
+        typeof data.baselinePrompt !== "string" || !Array.isArray(data.segments) ||
+        !data.counts || !Number.isFinite(Number(data.counts.removedWords)) ||
+        !Number.isFinite(Number(data.counts.addedWords))) throw new Error("Comparison example was incomplete.");
+    const segments = data.segments.filter(segment => segment &&
+      ["context", "removed", "added"].includes(segment.type) && typeof segment.text === "string");
+    if (segments.length !== data.segments.length) throw new Error("Comparison example was incomplete.");
+    if (segments.filter(segment => segment.type === "context" || segment.type === "removed").map(segment => segment.text).join("") !== data.before ||
+        segments.filter(segment => segment.type === "context" || segment.type === "added").map(segment => segment.text).join("") !== data.after) {
+      throw new Error("Comparison example did not match its text.");
     }
-    if (raw.text.length > MAX_TEXT) throw new Error("Use a transcript of up to 100,000 characters.");
-    // Export only documented result fields; credentials and session URLs are omitted.
-    const result = { text: raw.text };
-    for (const key of ["run_id", "created_at", "prompt", "service_input_transcript"]) {
-      if (typeof raw[key] === "string") result[key] = raw[key];
+    return { ...data, segments };
+  }
+  async function fetchDemo() {
+    state.demoLoading = true;
+    state.demoError = "";
+    renderDemo(latestContext);
+    try {
+      const response = await fetch("/api/demo-comparison", { credentials: "include" });
+      const body = await response.json();
+      if (!response.ok) throw new Error("Could not load.");
+      state.demo = demoValidate(body);
+    } catch (error) {
+      state.demo = null;
+      state.demoError = friendlyLiveError();
+    } finally {
+      state.demoLoading = false;
+      renderDemo(latestContext);
     }
-    if (typeof raw.complete === "boolean") result.complete = raw.complete;
-    for (const [group, keys] of Object.entries({
-      source: ["name", "sha256"],
-      audio: ["sha256", "start_seconds", "duration_seconds"],
-      engine: ["name", "model", "requested_model", "temperature", "replay_speed", "vad", "trailing_silence_seconds"],
-      timing: ["cloud_seconds", "total_seconds"]
-    })) {
-      result[group] = {};
-      for (const key of keys) {
-        const value = raw[group]?.[key];
-        if (typeof value === "string" || (typeof value === "number" && Number.isFinite(value))) result[group][key] = value;
-      }
+  }
+  function demoTranscript(side) {
+    const before = side === "before";
+    const visible = before ? ["context", "removed"] : ["context", "added"];
+    return state.demo.segments.filter(part => visible.includes(part.type)).map(part => {
+      const kind = part.type === "context" ? "" : part.type;
+      return `<span${kind ? ` class="${kind}"` : ""}>${fallbackEscape(part.text)}</span>`;
+    }).join("");
+  }
+  function bindDemo() {
+    document.getElementById("highlight-changes")?.addEventListener("change", event => {
+      state.highlights = event.currentTarget.checked;
+      renderDemo(latestContext);
+    });
+    document.getElementById("retry-demo-comparison")?.addEventListener("click", fetchDemo);
+  }
+  function renderDemo(ctx) {
+    if (!ctx || location.hash !== "#/comparison") return;
+    if (state.demoLoading) {
+      ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Before &amp; after</div><h1>Before &amp; after</h1></div></div><section class="compare-empty" aria-busy="true"><p>Loading comparison…</p></section>`;
+      return;
     }
-    return result;
-  }
-
-  function parseImport(text, filename) {
-    if (/\.json$/i.test(filename)) {
-      let raw;
-      try { raw = JSON.parse(text.replace(/^\uFEFF/, "")); }
-      catch { throw new Error("This JSON could not be read. Choose a valid result export."); }
-      return normalizeResult(raw);
+    if (!state.demo) {
+      ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Before &amp; after</div><h1>Before &amp; after</h1></div></div><section class="compare-empty"><p class="error-box" role="alert">We couldn’t load the comparison. Please try again.</p><button type="button" class="button" id="retry-demo-comparison">Try again</button><details><summary>Developer details</summary><p>${fallbackEscape(safeDebugText(state.demoError))}</p></details></section>`;
+      document.getElementById("retry-demo-comparison")?.addEventListener("click", fetchDemo);
+      return;
     }
-    if (!/\.txt$/i.test(filename)) throw new Error("Choose a JSON result export or a TXT transcript.");
-    return normalizeResult({ text });
+    const data = state.demo;
+    const panel = (side, title, prompt) => `<section class="compare-panel ${side}">
+      <div class="compare-panel-head"><h2>${title}</h2></div>
+      <div class="compare-prompt"><p class="compare-prompt-label">${side === "old" ? "Baseline prompt" : "Current system prompt"}</p><p class="compare-prompt-text">${fallbackEscape(prompt)}</p></div>
+      <div class="compare-transcript${state.highlights ? "" : " no-highlights"}">${demoTranscript(side === "old" ? "before" : "after")}</div>
+    </section>`;
+    ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Before &amp; after</div><h1>Before &amp; after</h1></div></div>
+      <section class="compare-banner"><div><strong>Developer example only</strong><p>Fixed comparison content is visible only in developer mode.</p></div></section>
+      <div class="compare-header-row"><div class="compare-counts"><div class="compare-count removed"><strong>${fallbackEscape(data.counts.removedWords)}</strong><span>Removed words</span></div><div class="compare-count added"><strong>${fallbackEscape(data.counts.addedWords)}</strong><span>Added words</span></div></div><label class="compare-highlight"><input type="checkbox" id="highlight-changes"${state.highlights ? " checked" : ""}> Highlight changes</label></div>
+      <div class="compare-columns">${panel("old", "Old transcript", data.baselinePrompt)}${panel("new", "New transcript", ctx.experiment.prompt || "")}</div>
+      <details class="score-disclosure"><summary>Developer details</summary><pre class="output-block">${fallbackEscape(safeDebugText(JSON.stringify(data, null, 2)))}</pre></details>`;
+    bindDemo();
   }
 
-  function compareResults(oldResult, newResult) {
-    // Bound the quadratic alignment work for untrusted imported transcripts.
-    const tokens = text => (text.match(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*|[^\s\p{L}\p{N}]/gu) || []).length;
-    if (tokens(oldResult.text) * tokens(newResult.text) > MAX_ALIGNMENT_CELLS) return null;
-    return diff.compare(oldResult.text, newResult.text);
+  function friendlyStatus(job) {
+    if (job?.outputPartial || job?.status === "partial") return "Partial result";
+    const labels = { saved: "Saved result", queued: "Queued", preparing: "Queued", connecting: "Running", streaming: "Running", sending: "Running", waiting: "Running", running: "Running", finished: "Complete", complete: "Complete", partial: "Partial result", failed: "Failed", cancelled: "Stopped", stopped: "Stopped" };
+    return labels[job?.status] || "Queued";
   }
-
-  function comparisonContext(a, b) {
-    if (!a || !b) return "Both results are required to compare their wording.";
-    const hashA = a.audio?.sha256, hashB = b.audio?.sha256;
-    const modelA = a.engine?.model, modelB = b.engine?.model;
-    if ((hashA && hashB && hashA !== hashB) || (modelA && modelB && modelA !== modelB)) {
-      return "Different audio or models. Use matching inputs to evaluate a prompt change.";
+  function transcriptText(record, side) {
+    const explicit = side === "before" ? record?.transcriptDiff?.before : record?.transcriptDiff?.after;
+    if (typeof explicit === "string") return explicit;
+    const run = side === "before" ? record?.before : record?.after;
+    return typeof run?.rawOutput === "string" ? run.rawOutput : "";
+  }
+  function transcriptChanges(comparison) {
+    if (transcriptDiffs.has(comparison)) return transcriptDiffs.get(comparison);
+    const before = transcriptText(comparison, "before");
+    const after = transcriptText(comparison, "after");
+    // Large transcripts use the server alignment to keep the interface responsive.
+    if (window.TranscriptDiff && before.length * after.length <= 80000000) {
+      const changes = window.TranscriptDiff.compare(before, after);
+      transcriptDiffs.set(comparison, changes);
+      return changes;
     }
-    for (const key of ["requested_model", "temperature", "replay_speed", "vad", "trailing_silence_seconds"]) {
-      if (a.engine?.[key] != null && b.engine?.[key] != null && a.engine[key] !== b.engine[key]) {
-        return "Different model settings. Use matching settings to evaluate a prompt change.";
-      }
+    return null;
+  }
+  function transcriptSegments(ctx, comparison, side) {
+    const changes = transcriptChanges(comparison);
+    if (changes) {
+      const kind = side === "before" ? "removed" : "added";
+      return changes[side === "before" ? "old" : "new"].map(part =>
+        `<span${part.changed ? ` class="${kind}"` : ""}>${esc(ctx, part.text)}</span>`
+      ).join("");
     }
-    return hashA && hashB && modelA && modelB
-      ? "Same audio and model. Changes describe wording; accuracy requires a reference transcript."
-      : "Audio and model metadata unavailable. Changes describe wording; accuracy requires a reference transcript.";
+    const text = transcriptText(comparison, side);
+    const segments = comparison?.transcriptDiff?.segments;
+    if (!Array.isArray(segments)) return fallbackEscape(text);
+    const visible = side === "before" ? new Set(["context", "removed"]) : new Set(["context", "added"]);
+    return segments.filter(part => part && visible.has(part.type) && typeof part.text === "string").map(part => {
+      const kind = part.type === "context" ? "" : part.type;
+      return `<span${kind ? ` class="${kind}"` : ""}>${esc(ctx, part.text)}</span>`;
+    }).join("");
   }
-
-  const records = { old: null, new: null };
-  let host = null;
-  let highlighted = true;
-  let comparison = null;
-  let demoRequested = false;
-  let revision = 0;
-  let selectedFilename = "";
-
-  function element(id) { return host.querySelector(`#${id}`); }
-  function announce(message) {
-    const feedback = element("comparison-feedback");
-    if (feedback) feedback.textContent = message;
+  function metricText(value, suffix = "") {
+    return typeof value === "number" && Number.isFinite(value) ? `${value}${suffix}` : "Not enough information to score this yet";
   }
-
-  function setResult(side, raw) {
-    if (side !== "old" && side !== "new") throw new Error("Choose the old or new result slot.");
-    records[side] = normalizeResult(raw);
-    revision++;
-    if (host?.isConnected && host.querySelector(".comparison-screen")) update();
+  function metricDeltaText(value, suffix = "") {
+    if (typeof value !== "number" || !Number.isFinite(value)) return "Not enough information to score this yet";
+    return `${value > 0 ? "+" : ""}${value}${suffix}`;
   }
-
-  function visibleResult(side) {
-    const result = records[side];
-    return selectedFilename && result?.source?.name && result.source.name !== selectedFilename ? null : result;
-  }
-
-  function card(side, letter, title, subtitle) {
-    return `<section class="panel response-card response-${side}" aria-labelledby="${side}-heading">
-      <div class="response-heading"><div><p class="response-kicker">${letter} · ${subtitle}</p><h2 id="${side}-heading">${title}</h2></div><span class="response-status" id="${side}-status">Awaiting result</span></div>
-      <div class="response-meta" id="${side}-meta"></div>
-      <p class="response-partial" id="${side}-partial" hidden>Partial response: the saved session ended before all output was confirmed final.</p>
-      <div class="response-transcript" id="${side}-text" tabindex="0" role="region" aria-label="${title} model response"></div>
-      <div class="response-actions"><button class="button secondary small" type="button" id="${side}-copy" disabled>Copy response</button><div><button class="comparison-link" type="button" id="${side}-txt" disabled>↓ TXT</button><button class="comparison-link" type="button" id="${side}-json" disabled>↓ JSON</button></div></div>
-      <details class="response-details" id="${side}-details" hidden><summary>Inspect run details</summary><dl id="${side}-run-details"></dl></details>
+  function performanceColumns(ctx, comparison) {
+    const before = comparison.before?.performance || {};
+    const after = comparison.after?.performance || {};
+    const deltas = comparison.deltas || {};
+    const column = (title, performance) => `<article class="comparison-performance-side">
+      <h3>${esc(ctx, title)}</h3>
+      <div><span>Accessibility score</span><strong>${esc(ctx, metricText(performance.accessibilityScore))}${typeof performance.accessibilityScore === "number" ? "<small>/ 100</small>" : ""}</strong></div>
+      <div><span>Key items captured</span><strong>${Number.isInteger(performance.keyItemsCaptured) && Number.isInteger(performance.keyItemsTotal) ? `${esc(ctx, performance.keyItemsCaptured)} of ${esc(ctx, performance.keyItemsTotal)}` : "Not enough information to score this yet"}</strong></div>
+      <div><span>Word accuracy</span><strong>${esc(ctx, metricText(performance.wordAccuracy, "%"))}</strong></div>
+      <p>${esc(ctx, typeof performance.outcome === "string" && performance.outcome.trim() ? performance.outcome : "Not enough information to score this yet")}</p>
+    </article>`;
+    return `<section class="compare-score-section"><div class="score-section-heading"><div><p class="section-label">Results from test</p><h2>What changed</h2></div>${Number.isInteger(comparison.issuesFixed) ? `<span class="compare-issues-fixed">${esc(ctx, comparison.issuesFixed)} issues fixed</span>` : ""}</div>
+      <div class="comparison-performance-columns">${column("Before", before)}${column("After", after)}</div>
+      <div class="comparison-deltas">
+        <div><span>Accessibility score change</span><strong>${esc(ctx, metricDeltaText(deltas.accessibilityScore))}</strong></div>
+        <div><span>Key items captured change</span><strong>${esc(ctx, metricDeltaText(deltas.keyItemsCaptured))}</strong></div>
+        <div><span>Word accuracy change</span><strong>${esc(ctx, metricDeltaText(deltas.wordAccuracy, "%"))}</strong></div>
+      </div>
+      ${after.failureQuote ? `<blockquote class="performance-quote">${esc(ctx, after.failureQuote)}</blockquote>` : ""}
     </section>`;
   }
-
-  function mount(container, context = {}) {
-    host = container;
-    selectedFilename = typeof context.filename === "string" ? context.filename : "";
-    host.innerHTML = `<div class="comparison-screen">
-      <div class="page-heading"><div><div class="eyebrow">Evaluation workspace / 04</div><h1>Before &amp; after</h1><p class="page-intro">See what changed between the original and revised transcripts.</p></div><div class="step-count">STEP 04 / 04</div></div>
-      <div class="comparison-source"><span id="comparison-source-name">Load a pair of results</span></div>
-      <div class="comparison-toolbar"><div class="comparison-counts" role="status" aria-live="polite"><span class="change-count removed" id="comparison-removed">Removed from old · —</span><span class="change-count added" id="comparison-added">Added in new · —</span></div><label class="comparison-toggle"><input id="comparison-highlight" type="checkbox" checked>Highlight changes</label></div>
-      <div class="response-grid">${card("old", "A", "Old transcript", "BASELINE")}${card("new", "B", "New transcript", "REVISED PROMPT")}</div>
-      <p class="comparison-feedback" id="comparison-feedback" role="status" aria-live="polite"></p>
-    </div>`;
-    element("comparison-highlight").checked = highlighted;
-    element("comparison-highlight").addEventListener("change", event => {
-      highlighted = event.target.checked;
-      renderTranscripts();
+  function promptDiffColumns(ctx, comparison) {
+    const parts = comparison?.promptDiff;
+    if (!Array.isArray(parts)) return "";
+    const column = side => parts.filter(part => part.type === "context" || part.type === side)
+      .map(part => `<span class="${part.type === "context" ? "" : `prompt-diff-${part.type}`}">${esc(ctx, part.text ?? "")}</span>`).join("");
+    return `<section class="score-section compare-prompt-diff"><div class="score-section-heading"><div><p class="section-label">Prompt changes</p><h2>What changed in the wording</h2></div></div>
+      <div class="proposal-diff-columns"><section><h3>Before</h3><pre>${column("removed")}</pre></section><section><h3>After</h3><pre>${column("added")}</pre></section></div></section>`;
+  }
+  function comparisonThemes(ctx, comparison) {
+    const themes = Array.isArray(comparison.themes) ? comparison.themes : [];
+    if (!themes.length) return "";
+    return `<section class="score-section"><div class="score-section-heading"><div><p class="section-label">Review by area</p><h2>What changed</h2></div></div><div class="compare-theme-list">${themes.map(theme => `<article class="compare-theme">
+      <div><strong>${esc(ctx, theme.label || "Review area")}</strong><span class="${theme.worsened ? "worsened" : ""}">${esc(ctx, theme.worsened ? "Worsened" : theme.status || "Not enough information yet")}</span></div>
+      <p>Before: ${Number.isInteger(theme.beforeCount) ? esc(ctx, theme.beforeCount) : "Not enough information"} · After: ${Number.isInteger(theme.afterCount) ? esc(ctx, theme.afterCount) : "Not enough information"}</p>
+    </article>`).join("")}</div></section>`;
+  }
+  function transcriptPanel(ctx, comparison, side) {
+    const before = side === "before";
+    const run = before ? comparison.before : comparison.after;
+    const transcript = transcriptText(comparison, side);
+    const prompt = typeof run?.promptUsed === "string" ? run.promptUsed : "";
+    const title = before ? "Before" : "After";
+    return `<section class="compare-panel ${before ? "old" : "new"}">
+      <div class="compare-panel-head"><div><p class="compare-response-label">${before ? "Original response" : "Updated response"}</p><h2>${title}</h2></div><span class="sim-state ${esc(ctx, String(run?.status || "").toLowerCase())}">${esc(ctx, friendlyStatus(run))}</span></div>
+      <details class="compare-prompt"><summary class="compare-prompt-label">System prompt used</summary><p class="compare-prompt-text">${esc(ctx, prompt)}</p></details>
+      <div class="compare-transcript${state.highlights ? "" : " no-highlights"}" tabindex="0" aria-label="${title} transcript">${transcriptSegments(ctx, comparison, side)}</div>
+      <div class="compare-actions"><button type="button" class="button secondary" data-copy-transcript="${side}">Copy response</button><button type="button" class="button secondary" data-download-transcript="${side}">Download TXT</button></div>
+      <p class="compare-feedback" id="compare-copy-feedback-${side}" aria-live="polite"></p>
+    </section>`;
+  }
+  function dataErrorMessage(ctx, message) {
+    return `<p class="error-box" role="alert">${esc(ctx, message)} <button type="button" class="button secondary small" id="retry-live-comparison">Try again</button></p>`;
+  }
+  function activeStatus(ctx, parent, child) {
+    const stage = parent.sandbox?.stage;
+    const active = (job) => ["queued", "preparing", "connecting", "streaming", "sending", "waiting", "running"].includes(job?.status);
+    if (!active(parent) && !active(child) && stage !== "reviewing") return "";
+    const reviewIsActive = stage === "reviewing" || active(child);
+    const label = reviewIsActive ? "Reviewing the response" : friendlyStatus(parent);
+    const elapsed = Number(parent.elapsedMs);
+    return `<section class="compare-active-test" role="status"><div><span class="live-dot"></span><strong>${esc(ctx, label)}</strong>${Number.isFinite(elapsed) ? `<span>${esc(ctx, (elapsed / 1000).toFixed(1))} sec</span>` : ""}</div>
+      ${parent.progress?.percent != null ? `<div class="job-progress"><span style="width:${Math.max(0, Math.min(100, Number(parent.progress.percent) || 0))}%"></span></div>` : ""}
+      <button type="button" class="button secondary small" id="stop-sandbox-run" ${state.submittingStop ? "disabled" : ""}>Stop</button></section>`;
+  }
+  function confirmationPanel(ctx, comparison, parent) {
+    if (String(state.confirmParentId) !== String(parent.id)) return "";
+    const exactPrompt = typeof comparison.after?.promptUsed === "string" ? comparison.after.promptUsed : "";
+    return `<section class="apply-confirmation"><div class="score-section-heading"><div><p class="section-label">Your updated system prompt</p><h2>Copy this prompt into your agent</h2></div><button type="button" class="button secondary small" id="close-apply-confirmation">Close</button></div>
+      <textarea id="sandbox-copy-text" readonly rows="9" aria-label="Exact updated system prompt">${esc(ctx, exactPrompt)}</textarea>
+      <div class="prompt-actions"><button type="button" class="button" id="copy-sandbox-prompt" ${exactPrompt ? "" : "disabled"}>Copy prompt</button></div>
+      <p class="copy-feedback" aria-live="polite">${esc(ctx, state.copyFeedback)}</p>
+      <p class="apply-coming-note">Direct updating of connected agents is coming soon. Copy this prompt to update your agent.</p>
+    </section>`;
+  }
+  function runDetails(ctx, parent, before, child) {
+    const after = parent;
+    const referenceStatus = after.inputSnapshot?.referenceMaterialSuppliedToModel === false
+      ? "Reference material was saved with this run and was not supplied to the model."
+      : "";
+    return `<details class="score-disclosure comparison-run-details"><summary>Run details</summary>
+      <p><strong>Recording:</strong> ${esc(ctx, recordingName(ctx, after))}</p>
+      <p><strong>Use case:</strong> ${esc(ctx, after.useCase?.label || "Saved use case")}</p>
+      <p><strong>Run status:</strong> ${esc(ctx, friendlyStatus(after))}</p>
+      <p><strong>Reference material:</strong> ${esc(ctx, referenceStatus || "Not recorded")}</p>
+      <p><strong>Original run:</strong> ${esc(ctx, displayDate(before?.createdAt))}</p>
+      <p><strong>Updated run:</strong> ${esc(ctx, displayDate(after.createdAt))}</p>
+      ${child?.error ? `<p>${esc(ctx, "The audio test is saved, but the additional review could not be completed.")}</p>` : ""}
+      ${debugMode() ? `<pre class="output-block">${esc(ctx, safeDebugText(JSON.stringify({ before, after, child }, null, 2)))}</pre>` : ""}
+    </details>`;
+  }
+  function bindLive(ctx, comparison, parent, before, renderAgain) {
+    document.getElementById("highlight-changes")?.addEventListener("change", event => {
+      state.highlights = event.currentTarget.checked;
+      if (renderAgain) renderAgain();
+      else renderLive(latestContext || ctx);
     });
-    for (const side of ["old", "new"]) {
-      element(`${side}-copy`).addEventListener("click", async () => {
-        const rawText = records[side].text;
-        try { await navigator.clipboard.writeText(rawText); announce(`Copied the ${side} response.`); }
-        catch {
-          if (!element(`${side}-text`)) return;
-          const range = document.createRange();
-          range.selectNodeContents(element(`${side}-text`));
-          const selection = root.getSelection();
-          selection.removeAllRanges(); selection.addRange(range);
-          announce("Response selected. Press ⌘C or Ctrl+C to copy.");
-        }
-      });
-      for (const format of ["txt", "json"]) element(`${side}-${format}`).addEventListener("click", () => {
-        const contents = format === "txt" ? records[side].text : JSON.stringify(records[side], null, 2);
-        const url = URL.createObjectURL(new Blob([contents], { type: format === "txt" ? "text/plain;charset=utf-8" : "application/json" }));
-        const link = document.createElement("a");
-        link.href = url; link.download = `${side}-response.${format}`;
-        document.body.append(link);
-        link.click(); link.remove();
-        root.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      });
+    document.getElementById("retry-live-comparison")?.addEventListener("click", () => {
+      ensureLiveComparison(before, parent, null, true);
+    });
+    document.getElementById("stop-sandbox-run")?.addEventListener("click", async () => {
+      if (state.submittingStop) return;
+      state.submittingStop = true;
+      renderLive(latestContext || ctx);
+      await window.CadenceSimulation?.stopJob?.(parent.id);
+      state.submittingStop = false;
+      renderLatest();
+    });
+    document.querySelectorAll("[data-copy-transcript]").forEach(button => button.addEventListener("click", async () => {
+      const side = button.dataset.copyTranscript;
+      const feedback = document.getElementById(`compare-copy-feedback-${side}`);
+      const value = transcriptText(comparison, side);
+      try {
+        if (!navigator.clipboard?.writeText) throw new Error("Unavailable");
+        await navigator.clipboard.writeText(value);
+        if (feedback) feedback.textContent = "Response copied.";
+      } catch {
+        if (feedback) feedback.textContent = "Couldn’t copy. Select the response text and copy it manually.";
+      }
+    }));
+    document.querySelectorAll("[data-download-transcript]").forEach(button => button.addEventListener("click", () => {
+      const side = button.dataset.downloadTranscript;
+      const content = transcriptText(comparison, side);
+      const url = URL.createObjectURL(new Blob([content], { type: "text/plain;charset=utf-8" }));
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${recordingName(ctx, parent).replace(/\.[^.]+$/, "")}-${side}-response.txt`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    }));
+    document.getElementById("apply-sandbox-prompt")?.addEventListener("click", () => {
+      state.confirmParentId = parent.id;
+      state.copyFeedback = "";
+      renderLive(latestContext || ctx);
+    });
+    document.getElementById("close-apply-confirmation")?.addEventListener("click", () => {
+      state.confirmParentId = null;
+      renderLive(latestContext || ctx);
+    });
+    document.getElementById("copy-sandbox-prompt")?.addEventListener("click", async () => {
+      const prompt = typeof comparison.after?.promptUsed === "string" ? comparison.after.promptUsed : "";
+      try {
+        if (!navigator.clipboard?.writeText) throw new Error("Unavailable");
+        await navigator.clipboard.writeText(prompt);
+        state.copyFeedback = "Prompt copied.";
+      } catch {
+        state.copyFeedback = "Couldn’t copy. Select the prompt above and copy it manually.";
+        renderLive(latestContext || ctx);
+        const textarea = document.getElementById("sandbox-copy-text");
+        textarea?.focus();
+        textarea?.select();
+        return;
+      }
+      renderLive(latestContext || ctx);
+    });
+  }
+  function renderLive(ctx) {
+    if (!ctx || location.hash !== "#/comparison") return;
+    const simulation = window.CadenceSimulation;
+    const runsState = simulation?.getRunsState?.() || { loading: false, error: "" };
+    const { parent, before, child } = findSandbox(ctx);
+    const currentSampleValue = currentSample(ctx);
+    if (!parent || !before) {
+      const failedRun = runs().filter(job => ["baseline", "candidate"].includes(job.kind) && job.status === "failed" &&
+        String(job.sampleId) === String(ctx.experiment.selectedId)).sort(newestFirst)[0];
+      if (failedRun || runsState.error) ensureFallback();
+      const fallback = (failedRun || runsState.error) ? fallbackFor(ctx, failedRun) : null;
+      if (fallback && !simulation?.isSandboxStarting?.() && !runsState.loading) {
+        ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Before &amp; after</div><h1>Before &amp; after</h1></div><div class="step-count">STEP 04 / 04</div></div>
+          <section class="compare-test-meta"><div><h2>${esc(ctx, fallback.recording.fileName)}</h2></div></section>${fallbackMarkup(ctx, fallback)}`;
+        bindLive(ctx, fallback, failedRun || { sampleId: ctx.experiment.selectedId, recording: fallback.recording }, null);
+        return;
+      }
+      const statusMarkup = simulation?.isSandboxStarting?.()
+        ? `<section class="compare-active-test" role="status"><span class="live-dot"></span><strong>Starting your test…</strong></section>`
+        : runsState.loading
+        ? `<section class="compare-empty" aria-busy="true"><p class="compare-loading">Loading your runs…</p></section>`
+        : runsState.error
+          ? `<section class="compare-empty"><p class="error-box" role="alert">We couldn’t load your runs. Please try again.</p><button type="button" class="button" id="retry-runs">Try again</button></section>`
+          : `<section class="compare-empty"><p>Compare transcripts before and after a prompt change. Run a baseline and a revised prompt to see the differences here.</p><div class="placeholder-actions"><a class="button" href="#/scorecard">Go to review</a><a class="button secondary" href="#/simulation">Go to Simulation</a></div></section>`;
+      ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Before &amp; after</div><h1>Before &amp; after</h1><p class="page-intro">See how a prompt change affected the same recording.</p></div><div class="step-count">STEP 04 / 04</div></div>${statusMarkup}`;
+      document.getElementById("retry-runs")?.addEventListener("click", () => simulation?.refreshRuns?.());
+      return;
     }
-    update();
-    if (!demoRequested && !records.old && !records.new) {
-      demoRequested = true;
-      const startingRevision = revision;
-      fetch("./comparison-results.json")
-        .then(response => { if (!response.ok) throw new Error(); return response.json(); })
-        .then(pair => {
-          const oldResult = normalizeResult(pair.old), newResult = normalizeResult(pair.new);
-          if (revision !== startingRevision) return;
-          records.old = oldResult; records.new = newResult;
-          revision++;
-          if (host?.querySelector(".comparison-screen")) update();
-        })
-        .catch(() => {
-          if (host?.querySelector(".comparison-screen")) announce("Saved comparison results are unavailable.");
-        });
+    const key = pairKey(before, parent);
+    ensureLiveComparison(before, parent, child);
+    const comparison = state.livePairs.get(key);
+    const changes = comparison ? transcriptChanges(comparison) : null;
+    const loadError = state.liveErrors.get(key);
+    const loading = state.liveLoading.has(key);
+    const active = activeStatus(ctx, parent, child);
+    const selectedPrompt = typeof comparison?.after?.promptUsed === "string";
+    const terminalProblem = ["failed", "cancelled", "stopped"].includes(parent.status);
+    const stageReady = comparison?.ready === true || parent.sandbox?.stage === "complete";
+    if (parent.status === "failed" && !comparison?.ready) ensureFallback();
+    const fallback = parent.status === "failed" && !comparison?.ready ? fallbackFor(ctx, parent) : null;
+    const content = fallback ? fallbackMarkup(ctx, fallback) : !comparison
+      ? terminalProblem
+        ? `<section class="compare-empty"><p>This test didn’t finish. You can review the saved details or start another test.</p><div class="placeholder-actions"><a class="button" href="#/scorecard">Go to review</a><a class="button secondary" href="#/simulation">Go to Simulation</a></div></section>`
+        : loadError
+        ? dataErrorMessage(ctx, loadError)
+        : `<section class="compare-empty" aria-busy="${loading ? "true" : "false"}"><p>${loading ? "Preparing your comparison…" : "Your before-and-after results will appear here."}</p></section>`
+      : comparison.comparable === false
+        ? `<section class="compare-empty"><p>This recording and its settings don’t match, so these runs can’t be compared.</p></section>`
+        : !comparison.ready && terminalProblem
+          ? `<section class="compare-empty"><p>This test didn’t finish. You can review the saved details or start another test.</p><div class="placeholder-actions"><a class="button" href="#/scorecard">Go to review</a><a class="button secondary" href="#/simulation">Go to Simulation</a></div></section>`
+        : !stageReady && !comparison.ready
+          ? `<section class="compare-empty"><p>The comparison will be ready when the test is complete.</p></section>`
+          : `<div class="compare-live-results">
+              ${performanceColumns(ctx, comparison)}
+              ${comparisonThemes(ctx, comparison)}
+              ${promptDiffColumns(ctx, comparison)}
+              <div class="compare-header-row"><div class="compare-counts" aria-label="Transcript changes">
+                <div class="compare-count removed"><strong>${esc(ctx, changes?.removedWords ?? comparison.transcriptDiff?.counts?.removedWords ?? "—")}</strong><span>Words removed</span></div>
+                <div class="compare-count added"><strong>${esc(ctx, changes?.addedWords ?? comparison.transcriptDiff?.counts?.addedWords ?? "—")}</strong><span>Words added</span></div>
+              </div><label class="compare-highlight"><input type="checkbox" id="highlight-changes"${state.highlights ? " checked" : ""}> Highlight changes</label></div>
+              <div class="compare-columns">${transcriptPanel(ctx, comparison, "before")}${transcriptPanel(ctx, comparison, "after")}</div>
+              ${selectedPrompt ? `<button type="button" class="button apply-sandbox-button" id="apply-sandbox-prompt">Apply these changes to your agent</button>` : ""}
+              ${confirmationPanel(ctx, comparison, parent)}
+              ${runDetails(ctx, parent, before, child)}
+            </div>`;
+    const stageText = parent.sandbox?.stage === "reviewing"
+      ? "Your recording is complete. Reviewing the response…"
+      : parent.sandbox?.stage === "complete" ? "Your test is complete." : "Your test is in progress.";
+    ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Before &amp; after</div><h1>Before &amp; after</h1><p class="page-intro">See how a prompt change affected the same recording.</p></div><div class="step-count">STEP 04 / 04</div></div>
+      <section class="compare-test-meta"><div><h2>${esc(ctx, recordingName(ctx, parent))}</h2><p>${esc(ctx, parent.useCase?.label || "Saved use case")}</p>${currentSampleValue && String(parent.sampleId) !== String(currentSampleValue.id) ? `<p class="compare-history-note">Showing a saved comparison from another use case. Your current setup is unchanged.</p>` : ""}</div><span class="sim-state ${esc(ctx, String(parent.status || "").toLowerCase())}">${esc(ctx, friendlyStatus(parent))}</span></section>
+      ${active}
+      ${!active && parent.sandbox?.reviewError ? `<p class="review-note">${esc(ctx, "The audio test is saved, but the additional review could not be completed.")}</p>` : ""}
+      ${!active ? `<p class="compare-stage-note">${esc(ctx, stageText)}</p>` : ""}
+      ${content}`;
+    if (fallback) bindLive(ctx, fallback, parent, before);
+    else if (comparison && comparison.comparable !== false) bindLive(ctx, comparison, parent, before);
+    else {
+      document.getElementById("retry-live-comparison")?.addEventListener("click", () => ensureLiveComparison(before, parent, child, true));
+      document.getElementById("stop-sandbox-run")?.addEventListener("click", () => simulation?.stopJob?.(parent.id));
     }
   }
-
-  function update() {
-    const oldResult = visibleResult("old"), newResult = visibleResult("new");
-    const ready = Boolean(oldResult && newResult);
-    comparison = ready ? compareResults(oldResult, newResult) : null;
-    element("comparison-removed").textContent = comparison ? `Removed from old · ${comparison.removedWords} words` : "Removed from old · —";
-    element("comparison-added").textContent = comparison ? `Added in new · ${comparison.addedWords} words` : "Added in new · —";
-    element("comparison-highlight").disabled = !comparison;
-    const names = [...new Set([records.old?.source?.name, records.new?.source?.name].filter(Boolean))];
-    element("comparison-source-name").textContent = selectedFilename || (names.length ? names.join(" ↔ ") : "Two raw model responses");
-    for (const side of ["old", "new"]) {
-      const result = visibleResult(side);
-      element(`${side}-status`).textContent = result ? "Saved response" : "Awaiting result";
-      element(`${side}-partial`).hidden = result?.complete !== false;
-      element(`${side}-details`).hidden = !result;
-      for (const action of ["copy", "txt", "json"]) element(`${side}-${action}`).disabled = !result;
-      const metadata = [result?.engine?.model];
-      if (typeof result?.audio?.start_seconds === "number" && typeof result?.audio?.duration_seconds === "number") {
-        metadata.push(`${result.audio.start_seconds}s → ${(result.audio.start_seconds + result.audio.duration_seconds).toFixed(1)}s`);
-      }
-      element(`${side}-meta`).textContent = metadata.filter(Boolean).join(" · ") || (result ? "Audio and model metadata unavailable" : "Awaiting a model response");
-      const detail = element(`${side}-run-details`);
-      detail.replaceChildren();
-      if (result) for (const [label, value] of [
-        ["Run ID", result.run_id], ["Recorded", result.created_at],
-        ["System prompt sent", result.prompt], ["Ultravox input transcript", result.service_input_transcript]
-      ]) {
-        if (typeof value !== "string") continue;
-        const dt = document.createElement("dt"), dd = document.createElement("dd");
-        dt.textContent = label; dd.textContent = value;
-        detail.append(dt, dd);
-      }
-      if (result && !detail.childNodes.length) detail.textContent = "Run details are unavailable for this response.";
+  function render(ctx) {
+    latestContext = ctx;
+    if (!unsubscribeRuns && window.CadenceSimulation?.onRunsChange) {
+      unsubscribeRuns = window.CadenceSimulation.onRunsChange(notifyFromRuns);
     }
-    renderTranscripts();
-  }
-
-  function renderTranscripts() {
-    for (const side of ["old", "new"]) {
-      const target = element(`${side}-text`), result = visibleResult(side);
-      const scroll = target.scrollTop;
-      target.replaceChildren();
-      target.classList.toggle("response-empty", !result);
-      if (!result) target.textContent = `Your ${side} transcript will appear here once results are available.`;
-      else if (!highlighted || !comparison) target.textContent = result.text;
-      else for (const segment of comparison[side]) {
-        if (!segment.changed) target.append(document.createTextNode(segment.text));
-        else {
-          const mark = document.createElement(side === "old" ? "del" : "ins");
-          mark.className = `transcript-${side}`; mark.textContent = segment.text;
-          target.append(mark);
-        }
-      }
-      target.scrollTop = scroll;
+    if (debugMode()) {
+      if (!state.demo && !state.demoLoading && !state.demoError) {
+        state.demoLoading = true;
+        fetchDemo();
+      } else renderDemo(ctx);
+      return;
     }
+    renderLive(ctx);
   }
-
-  const api = { mount, setResult, normalizeResult, parseImport, compareResults, comparisonContext };
-  if (typeof module !== "undefined" && module.exports) module.exports = api;
-  else root.CadenceComparison = api;
-})(typeof window !== "undefined" ? window : globalThis);
+  function renderSaved(ctx, pair) {
+    const comparison = {
+      before: { rawOutput: pair.old.text, promptUsed: pair.old.prompt, status: "saved" },
+      after: { rawOutput: pair.new.text, promptUsed: pair.new.prompt, status: "saved" }
+    };
+    ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Before &amp; after</div><h1>Before &amp; after</h1></div><div class="step-count">STEP 04 / 04</div></div>
+      <section class="compare-test-meta"><div><h2>${esc(ctx, pair.old.source.name)}</h2></div><span class="sim-state finished">Demo results</span></section>
+      ${fallbackMarkup(ctx, comparison, false)}
+      <div class="demo-actions"><button type="button" class="button" id="copy-demo-prompt">Copy improved prompt</button><p class="copy-feedback" id="demo-copy-feedback" aria-live="polite"></p></div>`;
+    bindLive(ctx, comparison, { recording: { fileName: pair.old.source.name } }, null, () => renderSaved(ctx, pair));
+    document.getElementById("copy-demo-prompt")?.addEventListener("click", async () => {
+      const feedback = document.getElementById("demo-copy-feedback");
+      try { await navigator.clipboard.writeText(pair.new.prompt); feedback.textContent = "Prompt copied."; }
+      catch { feedback.textContent = "Couldn’t copy. Open System prompt used and copy the text."; }
+    });
+  }
+  window.CadenceComparison = { render, renderSaved };
+})();

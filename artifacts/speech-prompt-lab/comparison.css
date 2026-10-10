@@ -1,47 +1,52 @@
-/* Comparison styles are scoped so setup, simulation and scorecard stay unchanged. */
-.comparison-screen { --removed-ink: #a3342c; --removed-fill: #fce6e2; --added-ink: #246443; --added-fill: #e3f2e7; }
-.comparison-screen .page-heading { margin-bottom: 20px; }
-.comparison-source { display: flex; align-items: center; flex-wrap: wrap; gap: 9px 14px; margin-bottom: 22px; color: var(--muted); font: 11px var(--font-mono); overflow-wrap: anywhere; }
-.comparison-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 17px; }
-.comparison-counts { display: flex; flex-wrap: wrap; gap: 8px; }
-.change-count { display: inline-flex; align-items: center; padding: 7px 11px; border-radius: 7px; font-size: 12px; font-weight: 700; }
-.change-count.removed { color: var(--removed-ink); background: var(--removed-fill); }
-.change-count.added { color: var(--added-ink); background: var(--added-fill); }
-.comparison-toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; cursor: pointer; }
-.comparison-toggle input { accent-color: var(--brand-dark); width: 14px; height: 14px; }
-.response-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
-.response-card { padding: 0; overflow: hidden; }
-.response-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 21px 21px 12px; }
-.response-heading h2 { margin: 0; font: 700 19px var(--font-display); letter-spacing: -.45px; }
-.response-kicker { margin: 0 0 7px; color: var(--muted); font: 10px var(--font-mono); letter-spacing: .09em; }
-.response-old .response-kicker { color: var(--removed-ink); }
-.response-new .response-kicker { color: var(--added-ink); }
-.response-status { flex-shrink: 0; padding: 4px 7px; border: 1px solid var(--line); border-radius: 5px; color: var(--muted); font: 9px var(--font-mono); }
-.response-meta { min-height: 34px; padding: 0 21px 13px; border-bottom: 1px solid var(--line); color: var(--muted); font: 10px/1.5 var(--font-mono); overflow-wrap: anywhere; }
-.response-partial { margin: 14px 21px 0; padding: 9px; border-radius: 6px; color: #795525; background: var(--amber-pale); font-size: 11px; }
-.response-transcript { height: 430px; overflow: auto; margin: 0; padding: 22px 21px; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/2 var(--font-ui); scrollbar-width: thin; scrollbar-color: #cbd8d1 transparent; }
-.response-transcript:focus-visible, .comparison-screen summary:focus-visible { outline: 3px solid #f17a71; outline-offset: -3px; }
-.response-empty { color: var(--muted); font-size: 13px; }
-.transcript-old { color: var(--removed-ink); background: var(--removed-fill); text-decoration-color: #bc7068; border-radius: 2px; }
-.transcript-new { color: var(--added-ink); background: var(--added-fill); text-decoration: underline; text-decoration-color: #76a68b; text-underline-offset: 3px; border-radius: 2px; }
-.response-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 21px; border-top: 1px solid var(--line); }
-.response-actions > div { display: flex; gap: 10px; }
-.comparison-link { padding: 5px 0; border: 0; color: var(--muted); background: transparent; font: 10px var(--font-mono); cursor: pointer; }
-.comparison-link:hover { color: var(--brand-dark); }
-.comparison-link:disabled { opacity: .5; cursor: not-allowed; }
-.response-details { border-top: 1px solid var(--line); padding: 13px 21px; }
-.comparison-screen summary { color: var(--muted); font-size: 11px; cursor: pointer; }
-.response-details dl { margin: 16px 0 0; }
-.response-details dt { margin: 14px 0 4px; color: var(--muted); font: 10px var(--font-mono); }
-.response-details dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; line-height: 1.7; }
-.comparison-feedback { min-height: 18px; margin: 10px 0 0; color: var(--brand-dark); font-size: 11px; }
-.comparison-feedback:empty { display: none; }
-@media (max-width: 1100px) {
-  .response-heading { flex-direction: column; }
+/* Only the comparison cards extend the current Cadence theme. */
+.compare-test-meta h2 { overflow-wrap: anywhere; }
+.compare-header-row { gap: 12px; }
+.compare-counts { gap: 8px; }
+.compare-count { gap: 9px; padding: 8px 12px; border-radius: 8px; }
+.compare-count strong { font: 800 20px var(--font-display); }
+.compare-count span { font: 600 12px var(--font-ui); }
+.compare-count.removed { border-color: #f0d7d2; color: #a3342c; background: #fce6e2; }
+.compare-count.removed strong, .compare-count.removed span { color: #a3342c; }
+.compare-count.added { border-color: #cfe5d6; color: #246443; background: #e3f2e7; }
+.compare-count.added strong, .compare-count.added span { color: #246443; }
+.compare-highlight { gap: 8px; font: 500 12px var(--font-ui); color: var(--muted); }
+.compare-highlight input { width: 15px; height: 15px; accent-color: var(--brand-dark); }
+.compare-columns { gap: 18px; align-items: start; }
+.compare-panel { border-color: var(--line); border-radius: 14px; background: var(--surface); box-shadow: 0 6px 22px rgba(30, 62, 58, .035); }
+.compare-panel-head { align-items: start; padding: 19px 20px 16px; border-color: var(--line); }
+.compare-panel-head h2 { color: var(--ink); font: 800 20px var(--font-display); letter-spacing: -.4px; }
+.compare-response-label { margin: 0 0 7px; color: var(--muted); font: 10px var(--font-mono); letter-spacing: .07em; text-transform: uppercase; }
+.compare-panel.old .compare-response-label { color: #a3342c; }
+.compare-panel.new .compare-response-label { color: #246443; }
+.compare-prompt { padding: 13px 20px; border-color: var(--line); }
+.compare-prompt summary { margin: 0; cursor: pointer; }
+.compare-prompt[open] .compare-prompt-text { margin-top: 9px; }
+.compare-prompt-text { font-size: 11px; }
+.compare-transcript { height: 430px; max-height: none; padding: 22px 20px; color: var(--ink); font: 13px/1.9 var(--font-mono); tab-size: 4; }
+.compare-transcript .removed { color: #a3342c; background: #fce6e2; text-decoration-color: #b92f27; }
+.compare-transcript .added { color: #246443; background: #e3f2e7; }
+.compare-transcript:focus-visible { outline: 2px solid var(--brand-dark); outline-offset: -3px; }
+.compare-actions { padding: 14px 20px; gap: 8px; border-color: var(--line); }
+.compare-actions .button { padding: 8px 11px; font-size: 11px; }
+.compare-feedback { padding: 0 20px 12px; color: var(--muted); font-size: 11px; }
+.compare-feedback:empty { display: none; }
+.compare-fallback-note { margin: 0; padding: 11px 14px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: var(--surface); font: 12px var(--font-ui); }
+@media (max-width: 760px) {
+  .compare-columns { grid-template-columns: minmax(0, 1fr); }
+  .compare-transcript { height: 360px; }
 }
-@media (max-width: 700px) {
-  .response-grid { grid-template-columns: minmax(0, 1fr); }
-  .response-heading { flex-direction: row; }
-  .response-transcript { height: 340px; }
-  .change-count { padding: 6px 9px; font-size: 11px; }
+@media (max-width: 520px) {
+  .compare-count { padding: 7px 10px; }
+  .compare-panel-head, .compare-prompt, .compare-actions { padding-left: 16px; padding-right: 16px; }
+  .compare-transcript { padding: 18px 16px; font-size: 12px; }
 }
+.demo-stage-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); gap: 18px; align-items: start; margin-top: 18px; }
+.demo-stage-grid > .score-section { min-width: 0; }
+.demo-transcript { max-height: 490px; font-size: 12px; line-height: 1.8; }
+.demo-review-copy { color: var(--muted); font: 13px/1.8 var(--font-ui); }
+.demo-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.demo-completed { display: grid; gap: 15px; margin-top: 22px; }
+.demo-completed > .sim-state { justify-self: start; }
+.demo-fixed-output { display: grid; gap: 16px; margin-top: 18px; }
+.demo-mode-badge { padding: 5px 10px; border-radius: 6px; background: var(--brand-pale); color: var(--brand-dark); font: 600 11px var(--font-ui); }
+@media (max-width: 760px) { .demo-stage-grid { grid-template-columns: minmax(0, 1fr); } }

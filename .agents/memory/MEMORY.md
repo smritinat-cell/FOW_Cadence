@@ -1,3 +1,6 @@
 - [App Storage readiness](app-storage-readiness.md) — creating a Client does not provision a default bucket; confirm storage readiness before relying on uploads.
 - [Phase sequencing](phase-sequencing.md) — later project phases remain blocked until every earlier phase is complete.
-- [Transcription trigger](transcription-trigger.md) — sample selection should start Ultravox transcription; loading or restoring the page must not start paid calls.
+- [Paid call triggers](transcription-trigger.md) — only explicit run/evaluate clicks start calls; selection, restoration, polling and prompt application never do.
+- [Demo context boundaries](demo-context-boundaries.md) — pediatric agent contexts are demo scenarios; keep metadata separate from visible prompt text and the fixed transcription baseline.
+- [Product copy](product-copy.md) — main screens address voice-agent builders; technical details stay outside the main view and fixed examples are debug-only.
+- [Scoring intent](scoring-intent.md) — actual reference-based test results supersede readiness as the headline; missing evidence never falls back to invented scores.
