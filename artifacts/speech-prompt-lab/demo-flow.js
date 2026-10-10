@@ -2,7 +2,7 @@
   "use strict";
   const enabled = document.documentElement?.dataset.demo === "true" || new URLSearchParams(location.search).get("demo") === "1";
   if (enabled) document.getElementById("demo-mode-badge").hidden = false;
-  let pair = null, pending = null, fixed = false, running = false, runKind = "baseline";
+  let pair = null, pending = null, fixed = false, running = false, runKind = "baseline", hasRun = false, runSampleId = null, runSequence = 0;
   const escape = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   function load() {
     if (!pending) pending = fetch("./comparison-results.json").then(async response => {
@@ -25,6 +25,18 @@
   function draw(ctx, route) {
     const selected = (ctx.samples || []).find(sample => String(sample.id) === String(ctx.experiment?.selectedId));
     const selectedFilename = selected?.audio_filename || pair.old.source.name;
+    const selectedId = String(ctx.experiment?.selectedId || "default");
+    if (runSampleId !== null && runSampleId !== selectedId) {
+      hasRun = false;
+      running = false;
+      fixed = false;
+      runSampleId = null;
+      runSequence++;
+    }
+    if (route !== "/simulation" && !hasRun) {
+      ctx.content.innerHTML = `${heading(route === "/comparison" ? "Before & after" : "Review of your agent", route === "/comparison" ? "04" : "03", "Review your completed run.")}<section class="compare-empty"><p>Run the recording in Simulation to view your results.</p><a class="button" href="#/simulation">Go to Simulation</a></section>`;
+      return;
+    }
     if (route === "/comparison") {
       window.CadenceComparison.renderSaved(ctx, pair, selectedFilename);
       return;
@@ -34,11 +46,14 @@
     if (route === "/simulation") {
       const model = /^demo-model-[1-4]$/.test(ctx.experiment?.model || "") ? ctx.experiment.model : "demo-model-1";
       const prompt = typeof ctx.experiment?.prompt === "string" ? ctx.experiment.prompt : pair.old.prompt;
+      const output = running
+        ? `<section class="score-section demo-run-loading" role="status" aria-live="polite" aria-busy="true"><span class="demo-run-spinner" aria-hidden="true"></span><h2>Processing recording…</h2><p>Your response is on its way.</p></section>`
+        : hasRun ? transcript(runKind === "candidate" ? "Your prompt response" : "Baseline response", pair.old.text) : "";
       ctx.content.innerHTML = `${heading("Simulation", "02", "Review the recording’s baseline result.")}${meta}
         <section class="panel sim-config-panel"><div class="panel-header"><div><p class="section-label">Run settings</p><h2 class="section-title">Choose a speech model</h2></div></div>
-          <div class="sim-model-actions"><div class="field sim-model-field"><label for="model-select">Model</label><select id="model-select">${[1, 2, 3, 4].map(index => `<option value="demo-model-${index}"${model === `demo-model-${index}` ? " selected" : ""}>Speech model ${index}</option>`).join("")}</select></div>
+          <div class="sim-model-actions"><div class="field sim-model-field"><label for="model-select">Model</label><select id="model-select"${running ? " disabled" : ""}>${[1, 2, 3, 4].map(index => `<option value="demo-model-${index}"${model === `demo-model-${index}` ? " selected" : ""}>Speech model ${index}</option>`).join("")}</select></div>
           <div class="sim-run-buttons"><button type="button" class="button" id="demo-run-baseline"${running ? " disabled" : ""}>${running && runKind === "baseline" ? "Running…" : "Run baseline"}</button><button type="button" class="button secondary" id="demo-run-candidate"${running ? " disabled" : ""}>${running && runKind === "candidate" ? "Running…" : "Run with my prompt"}</button></div></div></section>
-        <div class="demo-stage-grid" id="demo-run-output">${transcript(runKind === "candidate" ? "Your prompt response" : "Baseline response", pair.old.text)}<section class="score-section"><div class="field"><label class="section-label" for="demo-system-prompt">System prompt used</label><textarea id="demo-system-prompt" class="output-block demo-prompt-editor" rows="5" spellcheck="false">${escape(prompt)}</textarea></div><div class="demo-actions"><a class="button" href="#/scorecard">Continue to Scorecard</a></div></section></div>`;
+        <div class="demo-stage-grid${!hasRun && !running ? " demo-before-run" : ""}" id="demo-run-output">${output}<section class="score-section"><div class="field"><label class="section-label" for="demo-system-prompt">System prompt used</label><textarea id="demo-system-prompt" class="output-block demo-prompt-editor" rows="5" spellcheck="false">${escape(prompt)}</textarea></div>${hasRun && !running ? '<div class="demo-actions"><a class="button" href="#/scorecard">Continue to Scorecard</a></div>' : ""}</section></div>`;
       document.getElementById("demo-system-prompt").addEventListener("input", event => {
         if (ctx.experiment) ctx.experiment.prompt = event.currentTarget.value;
         ctx.saveExperiment?.();
@@ -48,15 +63,23 @@
         ctx.saveExperiment?.();
       });
       for (const kind of ["baseline", "candidate"]) document.getElementById(`demo-run-${kind}`).addEventListener("click", () => {
+        if (running) return;
+        const sequence = ++runSequence;
+        runSampleId = selectedId;
         runKind = kind;
+        hasRun = false;
+        fixed = false;
         running = true;
         draw(ctx, route);
         window.setTimeout(() => {
+          if (sequence !== runSequence) return;
           running = false;
-          if (location.hash !== "#/simulation") return;
-          draw(ctx, route);
-          document.getElementById("demo-run-output")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        }, 600);
+          hasRun = String(ctx.experiment?.selectedId || "default") === runSampleId;
+          const currentRoute = location.hash.slice(1);
+          if (!["/simulation", "/scorecard", "/comparison"].includes(currentRoute)) return;
+          draw(ctx, currentRoute);
+          if (currentRoute === "/simulation") document.getElementById("demo-run-output")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 1600);
       });
       return;
     }
