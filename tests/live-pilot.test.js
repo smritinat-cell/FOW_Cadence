@@ -102,9 +102,31 @@ test("preparation makes three explicit isolated calls, adoption makes none, fres
     assert.equal(f.calls.length, 3);
     assert.notEqual(adopted.before.id, history.runs[0].before.id);
     assert.equal(adopted.review.baselineId, adopted.before.id);
+    assert.equal(adopted.review.evaluatedRunId, adopted.before.id);
+    assert.equal(adopted.review.speechPatternSourceRunId, adopted.before.id);
+    assert.equal(adopted.after.speechPatternSourceRunId, adopted.before.id);
+    assert.equal(adopted.review.reviewedTranscript, adopted.before.rawOutput);
+    assert.equal(adopted.before.rawOutput, "raw um words");
+    assert.ok(adopted.before.speechGuidance.findings.length);
+    assert.ok(adopted.before.speechGuidance.findings.every(finding => adopted.before.rawOutput.includes(finding.quote)));
     assert.equal(adopted.after.sandbox.beforeRunId, adopted.before.id);
     assert.equal((await f.pilot.adopt(history.runs[0].id, "other-owner")).pairId, adopted.pairId);
     assert.throws(() => f.jobs.owned(adopted.before.id, "owner"), error => error.code === "NOT_FOUND");
+    const legacy = structuredClone([...f.pilot.packs.values()][0]);
+    legacy.id = crypto.randomUUID();
+    for (const run of [legacy.before, legacy.after]) {
+      delete run.workflow; delete run.speechPatterns; delete run.speechPatternSourceRunId;
+      delete run.speechGuidance; delete run.understanding;
+    }
+    f.pilot.packs.set(legacy.id, legacy);
+    const untouchedLegacy = JSON.stringify(legacy);
+    const legacyAdoption = await f.pilot.adopt(legacy.id, "legacy-owner");
+    assert.equal(f.calls.length, 3);
+    assert.equal(legacyAdoption.before.rawOutput, legacy.before.rawOutput);
+    assert.ok(legacyAdoption.before.speechGuidance.findings.length);
+    assert.deepEqual(legacyAdoption.after.speechPatterns, legacyAdoption.before.speechPatterns);
+    assert.equal(JSON.stringify(legacy), untouchedLegacy);
+    f.pilot.packs.delete(legacy.id);
     const started = await f.pilot.start({ sandboxEvaluationId: adopted.review.id, beforeRunId: adopted.before.id, currentPrompt: adopted.before.promptUsed }, "other-owner");
     const after = await wait(f.jobs, started.id);
     assert.equal(after.status, "finished"); assert.equal(f.calls.length, 4);
@@ -138,6 +160,12 @@ test("direct baseline and preset candidate need two calls, with unverified refer
     assert.equal(before.recording.fileName, "M_0061_14y8m_1.wav");
     assert.equal(before.metricInputSnapshot.referenceTranscript, "");
     assert.equal(before.performance.accessibilityScore, null);
+    assert.equal(before.rawOutput, "raw um words");
+    assert.ok(before.speechGuidance.findings.length);
+    assert.ok(before.speechGuidance.findings.every(finding => before.rawOutput.includes(finding.quote)));
+    const persistedBefore = (await f.store.records()).find(record => record.id === before.id);
+    assert.deepEqual(persistedBefore.speechGuidance, before.speechGuidance);
+    assert.equal(persistedBefore.rawOutput, before.rawOutput);
     const testRun = await f.pilot.start({ beforeRunId: before.id, currentPrompt: before.promptUsed }, "owner");
     const after = await wait(f.jobs, testRun.id);
     assert.equal(after.status, "finished"); assert.equal(f.calls.length, 2);
@@ -146,6 +174,8 @@ test("direct baseline and preset candidate need two calls, with unverified refer
     assert.equal(after.sandbox.sourceEvaluationId, null);
     assert.equal(after.sandbox.afterEvaluationId, undefined);
     assert.equal(after.performance.accessibilityScore, null);
+    assert.equal(after.speechPatternSourceRunId, before.id);
+    assert.deepEqual(after.speechPatterns, before.speechPatterns);
     assert.equal((await f.store.budget()).reservedSeconds, 100);
     assert.equal((await f.pilot.history("owner", "sample-01", "synthetic-model")).runs.length, 1);
   } finally { await f.cleanup(); }

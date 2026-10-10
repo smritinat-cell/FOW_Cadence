@@ -689,3 +689,53 @@ audio { display: block; width: 100%; height: 38px; margin-top: 9px; accent-color
   .compare-empty { padding:16px; }
   .sandbox-run-status a { margin-left:0; }
 }
+
+/* Enhanced transcript review; saved demo helpers retain their original markup. */
+.finding-pattern-groups { display:grid; gap:16px; }
+.finding-pattern-group { display:grid; gap:8px; }
+.finding-pattern-group > h3 { margin:0; color:#3d5950; font:700 13px var(--font-display); }
+.finding-quote-pair { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.finding-quote-pair blockquote { margin:0; }
+.missing-reference-state { color:#7a817a !important; font-size:10px !important; }
+.finding-missed-items { margin-top:10px; color:#63746c; font-size:11px; }
+.finding-missed-items > strong { color:#496057; font:700 10px var(--font-display); }
+.finding-missed-items ul { margin:5px 0 0; padding-left:18px; }
+.recovery-estimate { color:#725a35 !important; font-weight:600; }
+.speech-pattern-summary { display:grid; gap:10px; padding:13px; border:1px solid #dfe8e3; border-radius:9px; background:#f8faf7; }
+.speech-pattern-summary .section-label { margin-bottom:4px; }
+.speech-pattern-heading { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.speech-partial-tag { padding:3px 6px; border-radius:4px; color:#805c30; background:#f8efd9; font:9px var(--font-mono); text-transform:uppercase; }
+.speech-understanding,.speech-pattern-empty,.speech-pattern-source { margin:0; color:#63756d; font-size:11px; line-height:1.55; }
+.speech-missing-items { color:#63756d; font-size:10px; }
+.speech-missing-items strong { color:#805c30; font:700 10px var(--font-display); }
+.speech-missing-items ul { margin:4px 0 0; padding-left:18px; }
+.speech-pattern-list { display:grid; gap:7px; }
+.speech-pattern-item { padding:10px 11px; border:1px solid #e3eae5; border-radius:7px; background:#fff; }
+.speech-pattern-item > strong { color:#3e5850; font:700 11px var(--font-display); }
+.speech-pattern-item p { margin:5px 0 0; color:#6a7972; font-size:11px; }
+.speech-pattern-item ul { display:flex; flex-wrap:wrap; gap:5px 14px; margin:7px 0 0; padding:0; list-style:none; }
+.speech-pattern-item li { display:flex; gap:5px; color:#75847c; font:10px var(--font-mono); }
+.speech-pattern-item li strong { color:#405a50; }
+.speech-pattern-item blockquote { margin:7px 0 0; padding:7px 9px; border-left:2px solid #d78077; color:#4a5e56; background:#fff7f5; font-size:10px; }
+.speech-pattern-source { font:9px var(--font-mono); }
+
+.enhanced-finding .finding-confidence { font-size:10px; text-transform:none; }
+.performance-grid .performance-empty-value { font:600 13px/1.55 var(--font-ui); }
+.enhanced-performance-cards .performance-grid article { border-color:#f0d5d0; background:#fff8f6; }
+.enhanced-performance-cards .performance-grid article > strong { color:var(--brand-dark); }
+.enhanced-performance-cards .performance-grid .performance-empty-value { color:var(--muted); }
+.enhanced-performance .comparison-score-lead { display:flex; align-items:baseline; flex-wrap:wrap; gap:12px; margin:12px 0 0; }
+.enhanced-performance .comparison-score-lead strong { font:700 30px/1.2 var(--font-display); color:var(--ink); }
+.enhanced-performance .comparison-score-lead span { color:#41675a; font:700 13px var(--font-ui); }
+.enhanced-performance.worsened .comparison-score-lead span,
+.enhanced-performance .comparison-deltas .worsened strong,
+.enhanced-performance .comparison-deltas .worsened span,
+.enhanced-performance .comparison-performance-side.before strong { color:var(--brand-dark); }
+.enhanced-performance.worsened .comparison-performance-side.after strong { color:var(--brand-dark); }
+.enhanced-performance.improved .comparison-performance-side.after strong { color:#246443; }
+.enhanced-performance.unchanged .comparison-score-lead span { color:var(--muted); }
+.comparison-guidance ul { display:grid; gap:10px; margin:0; padding-left:20px; }
+.comparison-guidance li > strong { color:var(--ink); font:700 12px var(--font-display); }
+.comparison-guidance li > p { margin:4px 0 0; color:var(--muted); font:12px/1.6 var(--font-ui); }
+.comparison-guidance .comparison-instruction { white-space:pre-wrap; }
+@media(max-width:700px) { .finding-quote-pair { grid-template-columns:minmax(0,1fr); } }

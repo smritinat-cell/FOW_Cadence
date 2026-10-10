@@ -26,7 +26,7 @@ function finding(id, severity = "low", theme = "speech_patterns", coverage = "no
 function review(value, source = baseline) { return validateEvaluation(JSON.stringify(value), source, prompt, rubric); }
 
 test("all three rubric weights and starter parameters are isolated and versioned", () => {
-  assert.equal(config.rubric_version, "1.0.0");
+  assert.equal(config.rubric_version, "1.1.0");
   assert.deepEqual(config.use_cases.map(item => config.themes.map(theme => item.weights[theme.id])), [[25,25,20,20,10],[25,15,20,30,10],[35,25,15,15,10]]);
   const ids = config.use_cases.map(item => new Set(item.parameters.map(parameter => parameter.id)));
   assert.ok(ids.every((set, i) => [...set].every(id => !ids.some((other, j) => j !== i && other.has(id)))));

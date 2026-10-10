@@ -54,7 +54,7 @@
   }
   function recordingName(ctx, run) {
     const sample = (ctx.samples || []).find(sample => String(sample.id) === String(run.sampleId));
-    const filename = sample?.audio_filename || run.recording?.fileName;
+    const filename = run.recording?.fileName || sample?.audio_filename;
     return typeof filename === "string" && filename
       ? filename.split(/[\\/]/).pop().replace(/_\d{13}(?=\.[^.]+$)/, "")
       : run.recording?.label || "Selected recording";
@@ -79,6 +79,9 @@
   }
   function fallbackFor(ctx, run) {
     if (!state.fallback) return null;
+    const sample = run ? (ctx.samples || []).find(item => String(item.id) === String(run.sampleId)) : currentSample(ctx);
+    const sampleFilename = sample?.audio_filename?.split(/[\\/]/).pop().replace(/_\d{13}(?=\.[^.]+$)/, "");
+    if (sampleFilename && sampleFilename !== state.fallback.recording.fileName) return null;
     const name = run ? recordingName(ctx, run) : currentSample(ctx)?.audio_filename;
     return name === state.fallback.recording.fileName ? state.fallback : null;
   }
@@ -266,23 +269,24 @@
     return `${value > 0 ? "+" : ""}${value}${suffix}`;
   }
   function performanceColumns(ctx, comparison) {
+    const missing = "Add a reference transcript to score this recording";
     const before = comparison.before?.performance || {};
     const after = comparison.after?.performance || {};
-    const deltas = comparison.deltas || {};
-    const column = (title, performance) => `<article class="comparison-performance-side">
+    const delta = key => Number.isFinite(before[key]) && Number.isFinite(after[key]) ? after[key] - before[key] : null;
+    const accessibilityDelta = delta("accessibilityScore");
+    const direction = accessibilityDelta == null ? "unscored" : accessibilityDelta < 0 ? "worsened" : accessibilityDelta > 0 ? "improved" : "unchanged";
+    const score = value => Number.isFinite(value) ? String(value) : missing;
+    const column = (title, performance) => `<article class="comparison-performance-side ${title === "Before" ? "before" : "after"}">
       <h3>${esc(ctx, title)}</h3>
-      <div><span>Accessibility score</span><strong>${esc(ctx, metricText(performance.accessibilityScore))}${typeof performance.accessibilityScore === "number" ? "<small>/ 100</small>" : ""}</strong></div>
-      <div><span>Key items captured</span><strong>${Number.isInteger(performance.keyItemsCaptured) && Number.isInteger(performance.keyItemsTotal) ? `${esc(ctx, performance.keyItemsCaptured)} of ${esc(ctx, performance.keyItemsTotal)}` : "Not enough information to score this yet"}</strong></div>
-      <div><span>Word accuracy</span><strong>${esc(ctx, metricText(performance.wordAccuracy, "%"))}</strong></div>
-      <p>${esc(ctx, typeof performance.outcome === "string" && performance.outcome.trim() ? performance.outcome : "Not enough information to score this yet")}</p>
+      <div><span>Accessibility score</span><strong>${esc(ctx, score(performance.accessibilityScore))}${Number.isFinite(performance.accessibilityScore) ? "<small>/ 100</small>" : ""}</strong></div>
+      <div><span>Key items captured</span><strong>${Number.isInteger(performance.keyItemsCaptured) && Number.isInteger(performance.keyItemsTotal) ? `${esc(ctx, performance.keyItemsCaptured)} of ${esc(ctx, performance.keyItemsTotal)}` : missing}</strong></div>
+      <div><span>Word accuracy</span><strong>${esc(ctx, Number.isFinite(performance.wordAccuracy) ? `${performance.wordAccuracy}%` : missing)}</strong></div>
+      ${typeof performance.outcome === "string" && performance.outcome.trim() ? `<p>${esc(ctx, performance.outcome)}</p>` : ""}
     </article>`;
-    return `<section class="compare-score-section"><div class="score-section-heading"><div><p class="section-label">Results from test</p><h2>What changed</h2></div>${Number.isInteger(comparison.issuesFixed) ? `<span class="compare-issues-fixed">${esc(ctx, comparison.issuesFixed)} issues fixed</span>` : ""}</div>
+    const changes = [["accessibilityScore", "Accessibility score change", " points"], ["keyItemsCaptured", "Key items captured change", ""], ["wordAccuracy", "Word accuracy change", "%"]];
+    return `<section class="compare-score-section enhanced-performance ${direction}"><div class="score-section-heading"><div><p class="section-label">Test results</p><h2>Accessibility score</h2>${accessibilityDelta != null ? `<p class="comparison-score-lead"><strong>${esc(ctx, before.accessibilityScore)} → ${esc(ctx, after.accessibilityScore)}</strong><span>${esc(ctx, metricDeltaText(accessibilityDelta))} points</span></p>` : `<p class="field-help">${missing}</p>`}</div>${Number.isInteger(comparison.issuesFixed) ? `<span class="compare-issues-fixed">${esc(ctx, comparison.issuesFixed)} issues fixed</span>` : ""}</div>
       <div class="comparison-performance-columns">${column("Before", before)}${column("After", after)}</div>
-      <div class="comparison-deltas">
-        <div><span>Accessibility score change</span><strong>${esc(ctx, metricDeltaText(deltas.accessibilityScore))}</strong></div>
-        <div><span>Key items captured change</span><strong>${esc(ctx, metricDeltaText(deltas.keyItemsCaptured))}</strong></div>
-        <div><span>Word accuracy change</span><strong>${esc(ctx, metricDeltaText(deltas.wordAccuracy, "%"))}</strong></div>
-      </div>
+      <div class="comparison-deltas">${changes.map(([key, label, suffix]) => { const change = delta(key); return `<div${change < 0 ? ' class="worsened"' : ""}><span>${label}${change < 0 ? " · Decreased" : ""}</span><strong>${esc(ctx, change == null ? missing : `${metricDeltaText(change)}${suffix}`)}</strong></div>`; }).join("")}</div>
       ${after.failureQuote ? `<blockquote class="performance-quote">${esc(ctx, after.failureQuote)}</blockquote>` : ""}
     </section>`;
   }
@@ -301,6 +305,53 @@
       <div><strong>${esc(ctx, theme.label || "Review area")}</strong><span class="${theme.worsened ? "worsened" : ""}">${esc(ctx, theme.worsened ? "Worsened" : theme.status || "Not enough information yet")}</span></div>
       <p>Before: ${Number.isInteger(theme.beforeCount) ? esc(ctx, theme.beforeCount) : "Not enough information"} · After: ${Number.isInteger(theme.afterCount) ? esc(ctx, theme.afterCount) : "Not enough information"}</p>
     </article>`).join("")}</div></section>`;
+  }
+  function promptGuidanceMarkup(ctx, comparison) {
+    const edits = [...(Array.isArray(comparison.promptEdits) ? comparison.promptEdits : []), ...(Array.isArray(comparison.speechGuidance) ? comparison.speechGuidance : [])];
+    const parts = Array.isArray(comparison.promptDiff) ? comparison.promptDiff : [];
+    const normalize = text => String(text || "").replace(/\r\n/g, "\n").trim();
+    const afterPrompt = typeof comparison.after?.promptUsed === "string" ? comparison.after.promptUsed : parts.filter(part => part.type !== "removed").map(part => part.text || "").join("");
+    const beforePrompt = typeof comparison.before?.promptUsed === "string" ? comparison.before.promptUsed : parts.filter(part => part.type !== "added").map(part => part.text || "").join("");
+    const sectionEnd = afterPrompt.search(/(?:^|\r?\n)[ \t]*---[ \t]*(?:\r?\n|$)/);
+    const end = sectionEnd < 0 ? afterPrompt.length : sectionEnd;
+    const reconstructed = parts.filter(part => part.type === "context" || part.type === "added").map(part => part.text || "").join("");
+    let added = [];
+    if (parts.length && reconstructed === afterPrompt) {
+      let offset = 0;
+      for (const part of parts) {
+        if (part.type !== "context" && part.type !== "added") continue;
+        const text = String(part.text || "");
+        if (part.type === "added" && offset < end) added.push(text.slice(0, end - offset));
+        offset += text.length;
+      }
+    } else {
+      const unchanged = new Set(beforePrompt.split(/\r?\n[ \t]*\r?\n/).map(normalize));
+      added = afterPrompt.slice(0, end).split(/\r?\n[ \t]*\r?\n/).filter(text => !unchanged.has(normalize(text)));
+    }
+    const instructions = added.flatMap(text => text.split(/\r?\n[ \t]*\r?\n/))
+      .flatMap(text => edits.some(edit => normalize(edit.new_text ?? edit.newText) === normalize(text)) ? [text] : text.split(/\r?\n/))
+      .map(text => text.trim()).filter(Boolean);
+    for (const edit of edits) {
+      const text = edit.new_text ?? edit.newText;
+      if (typeof text === "string" && text.trim() && normalize(afterPrompt.slice(0, end)).includes(normalize(text))) instructions.push(text.trim());
+    }
+    const unique = [...new Map(instructions.map(text => [normalize(text), text])).values()];
+    if (!unique.length) return "";
+    const area = text => {
+      const edit = edits.find(item => normalize(item.new_text ?? item.newText) === normalize(text));
+      if (edit?.speechPattern || edit?.category || edit?.theme) return edit.speechPattern || edit.category || edit.theme;
+      if (/^Include all substantive speech/i.test(text)) return "Speech content";
+      if (/^Remove hesitation fillers/i.test(text)) return "Speech patterns";
+      if (/^Preserve the speaker/i.test(text)) return "Meaning and short responses";
+      if (/^Use the reference vocabulary/i.test(text)) return "Vocabulary and uncertainty";
+      if (/^(?:Produce a readable|Output only the transcript)/i.test(text)) return "Transcript format";
+      return "Prompt instruction";
+    };
+    return `<section class="score-section comparison-guidance"><div class="score-section-heading"><div><p class="section-label">Prompt instructions</p><h2>What these changes address</h2></div></div><ul>${unique.map(text => `<li><strong>${esc(ctx, area(text))}</strong><p class="comparison-instruction">${esc(ctx, text)}</p></li>`).join("")}</ul></section>`;
+  }
+  function completedContentMarkup(ctx, comparison, parent) {
+    const changes = transcriptChanges(comparison);
+    return `<div class="compare-live-results enhanced-comparison">${performanceColumns(ctx, comparison)}${promptDiffColumns(ctx, comparison)}${promptGuidanceMarkup(ctx, comparison)}${comparisonThemes(ctx, comparison)}<div class="compare-header-row"><div class="compare-counts" aria-label="Transcript changes"><div class="compare-count removed"><strong>${esc(ctx, changes?.removedWords ?? comparison.transcriptDiff?.counts?.removedWords ?? "—")}</strong><span>Words removed</span></div><div class="compare-count added"><strong>${esc(ctx, changes?.addedWords ?? comparison.transcriptDiff?.counts?.addedWords ?? "—")}</strong><span>Words added</span></div></div><label class="compare-highlight"><input type="checkbox" id="highlight-changes"${state.highlights ? " checked" : ""}> Highlight changes</label></div><div class="compare-columns">${transcriptPanel(ctx, comparison, "before")}${transcriptPanel(ctx, comparison, "after")}</div>${typeof comparison.after?.promptUsed === "string" ? '<button type="button" class="button apply-sandbox-button" id="apply-sandbox-prompt">Apply these changes to your agent</button>' : ""}${confirmationPanel(ctx, comparison, parent)}</div>`;
   }
   function transcriptPanel(ctx, comparison, side) {
     const before = side === "before";
@@ -343,7 +394,7 @@
       <textarea id="sandbox-copy-text" readonly rows="9" aria-label="Exact updated system prompt">${esc(ctx, exactPrompt)}</textarea>
       <div class="prompt-actions"><button type="button" class="button" id="copy-sandbox-prompt" ${exactPrompt ? "" : "disabled"}>Copy prompt</button></div>
       <p class="copy-feedback" aria-live="polite">${esc(ctx, state.copyFeedback)}</p>
-      <p class="apply-coming-note">Direct updating of connected agents is coming soon. Copy this prompt to update your agent.</p>
+      <p class="apply-coming-note">Copy this exact prompt into your agent.</p>
     </section>`;
   }
   function runDetails(ctx, parent, before, child) {
@@ -363,10 +414,10 @@
     </details>`;
   }
   function bindLive(ctx, comparison, parent, before, renderAgain) {
+    const redraw = () => renderAgain ? renderAgain() : renderLive(latestContext || ctx);
     document.getElementById("highlight-changes")?.addEventListener("change", event => {
       state.highlights = event.currentTarget.checked;
-      if (renderAgain) renderAgain();
-      else renderLive(latestContext || ctx);
+      redraw();
     });
     document.getElementById("retry-live-comparison")?.addEventListener("click", () => {
       ensureLiveComparison(before, parent, null, true);
@@ -374,7 +425,7 @@
     document.getElementById("stop-sandbox-run")?.addEventListener("click", async () => {
       if (state.submittingStop) return;
       state.submittingStop = true;
-      renderLive(latestContext || ctx);
+      redraw();
       await window.CadenceSimulation?.stopJob?.(parent.id);
       state.submittingStop = false;
       renderLatest();
@@ -406,11 +457,11 @@
     document.getElementById("apply-sandbox-prompt")?.addEventListener("click", () => {
       state.confirmParentId = parent.id;
       state.copyFeedback = "";
-      renderLive(latestContext || ctx);
+      redraw();
     });
     document.getElementById("close-apply-confirmation")?.addEventListener("click", () => {
       state.confirmParentId = null;
-      renderLive(latestContext || ctx);
+      redraw();
     });
     document.getElementById("copy-sandbox-prompt")?.addEventListener("click", async () => {
       const prompt = typeof comparison.after?.promptUsed === "string" ? comparison.after.promptUsed : "";
@@ -420,13 +471,13 @@
         state.copyFeedback = "Prompt copied.";
       } catch {
         state.copyFeedback = "Couldn’t copy. Select the prompt above and copy it manually.";
-        renderLive(latestContext || ctx);
+        redraw();
         const textarea = document.getElementById("sandbox-copy-text");
         textarea?.focus();
         textarea?.select();
         return;
       }
-      renderLive(latestContext || ctx);
+      redraw();
     });
   }
   function renderLive(ctx) {
@@ -481,19 +532,7 @@
           ? `<section class="compare-empty"><p>This test didn’t finish. You can review the saved details or start another test.</p><div class="placeholder-actions"><a class="button" href="#/scorecard">Go to review</a><a class="button secondary" href="#/simulation">Go to Simulation</a></div></section>`
         : !stageReady && !comparison.ready
           ? `<section class="compare-empty"><p>The comparison will be ready when the test is complete.</p></section>`
-          : `<div class="compare-live-results">
-              ${performanceColumns(ctx, comparison)}
-              ${comparisonThemes(ctx, comparison)}
-              ${promptDiffColumns(ctx, comparison)}
-              <div class="compare-header-row"><div class="compare-counts" aria-label="Transcript changes">
-                <div class="compare-count removed"><strong>${esc(ctx, changes?.removedWords ?? comparison.transcriptDiff?.counts?.removedWords ?? "—")}</strong><span>Words removed</span></div>
-                <div class="compare-count added"><strong>${esc(ctx, changes?.addedWords ?? comparison.transcriptDiff?.counts?.addedWords ?? "—")}</strong><span>Words added</span></div>
-              </div><label class="compare-highlight"><input type="checkbox" id="highlight-changes"${state.highlights ? " checked" : ""}> Highlight changes</label></div>
-              <div class="compare-columns">${transcriptPanel(ctx, comparison, "before")}${transcriptPanel(ctx, comparison, "after")}</div>
-              ${selectedPrompt ? `<button type="button" class="button apply-sandbox-button" id="apply-sandbox-prompt">Apply these changes to your agent</button>` : ""}
-              ${confirmationPanel(ctx, comparison, parent)}
-              ${runDetails(ctx, parent, before, child)}
-            </div>`;
+          : completedContentMarkup(ctx, comparison, parent);
     const stageText = parent.sandbox?.stage === "reviewing"
       ? "Your recording is complete. Reviewing the response…"
       : parent.sandbox?.stage === "complete" ? "Your test is complete." : "Your test is in progress.";
@@ -524,6 +563,26 @@
     }
     renderLive(ctx);
   }
+  function renderCompleted(ctx, supplied, options = {}) {
+    const comparison = { ...supplied,
+      before: { ...supplied.before, performance: supplied.before?.performance?.demo ? undefined : supplied.before?.performance },
+      after: { ...supplied.after, performance: supplied.after?.performance?.demo ? undefined : supplied.after?.performance }
+    };
+    if (comparison.comparable === false || typeof comparison.before.rawOutput !== "string" || typeof comparison.after.rawOutput !== "string") {
+      ctx.content.innerHTML = `<section class="compare-empty"><p>Choose a completed comparison from the same recording and excerpt.</p></section>`;
+      options.onRendered?.();
+      return;
+    }
+    const parent = comparison.after;
+    const filename = parent.recording?.fileName || comparison.before.recording?.fileName || "Selected recording";
+    state.completedContext = { supplied, ctx, options };
+    ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Results Summary</div><h1>Results Summary</h1><p class="page-intro">See how the prompt change affected the same recording.</p></div><div class="step-count">STEP 04 / 04</div></div><section class="compare-test-meta"><div><h2>${esc(ctx, filename)}</h2></div><span class="sim-state finished">Complete</span></section>${completedContentMarkup(ctx, comparison, parent)}${runDetails(ctx, parent, comparison.before, null)}`;
+    const redraw = () => {
+      if (location.hash === "#/comparison" && state.completedContext?.supplied === supplied) renderCompleted(ctx, supplied, options);
+    };
+    bindLive(ctx, comparison, parent, comparison.before, redraw);
+    options.onRendered?.();
+  }
   function renderSaved(ctx, pair, filename = pair.old.source.name) {
     const comparison = {
       before: { rawOutput: pair.old.text, promptUsed: pair.old.prompt, status: "saved", performance: pair.old.performance || pair.old.demoPerformance },
@@ -541,5 +600,5 @@
       catch { feedback.textContent = "Couldn’t copy. Open System prompt used and copy the text."; }
     });
   }
-  window.CadenceComparison = { render, renderSaved };
+  window.CadenceComparison = { render, renderSaved, renderCompleted, comparisonMarkup: { performance: performanceColumns, promptDiff: promptDiffColumns, guidance: promptGuidanceMarkup, themes: comparisonThemes } };
 })();

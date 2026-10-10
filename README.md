@@ -2,7 +2,7 @@
 
 Cadence evaluates voice-agent accessibility and compares results before and
 after a prompt improvement. The saved walkthrough keeps the shipped full
-transcript and results. A hidden live mode tests 15-second recording excerpts
+transcript and results. The D / L switch opens live tests of 15-second recording excerpts
 with Ultravox and offers previous completed runs while a new test is loading.
 
 ## Start the app
@@ -33,12 +33,12 @@ new sample. One confirmation protects all edited auto-filled fields. Reset
 restores sample defaults without replacing Agent ID. Saved setup edits survive
 reload. Jobs record the selected use case as metadata only, never model input.
 
-## Hidden live walkthrough
+## Demo and live walkthroughs
 
-Click the Cadence logo five times within three seconds, or focus it and press
-Enter five times. Choose **Live evaluation**; choose **Saved results** to return
-to the existing walkthrough. The mode is local to the current browser tab, and
-live setup and history use separate storage from the saved demo.
+Use the **D / L** switch at the top right: **D** opens the saved walkthrough;
+**L** opens live evaluation. The mode is local to the current browser tab.
+Live setup and history use separate storage from the saved demo. Click the
+Cadence logo five times within three seconds to open reference settings.
 
 The backend reads the existing `ULTRAVOX_API_KEY` environment secret directly.
 No database, presenter code, or new session secret is required. Run the Node

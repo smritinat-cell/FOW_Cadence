@@ -39,14 +39,28 @@ test('saved is default; private mode opens after five deliberate activations wit
   assert.equal(liveSandbox.window.CadenceMode.storageKey('progress'),'cadence-live-progress-v1');
 });
 
+test('visible Demo / Live switch changes modes and preserves their separate storage',()=>{
+  const {get}=controls(),stored=new Map();let reloads=0;
+  const sandbox={Date,sessionStorage:{getItem:key=>stored.get(key),setItem:(key,value)=>stored.set(key,value)},location:{reload(){reloads++;}},document:{readyState:'complete',getElementById:get,querySelector:()=>null},window:{}};
+  vm.runInNewContext(modeCode,sandbox);
+  get('cadence-mode-toggle').handlers.click();
+  assert.equal(stored.get('cadence-tab-mode-v1'),'live');assert.equal(reloads,1);
+  const live={...sandbox,window:{}};vm.runInNewContext(modeCode,live);
+  assert.equal(live.window.CadenceMode.mode,'live');
+  assert.equal(live.window.CadenceMode.storageKey('experiment'),'cadence-live-experiment-v1');
+  get('cadence-mode-toggle').handlers.click();
+  assert.equal(stored.get('cadence-tab-mode-v1'),'saved');assert.equal(reloads,2);
+  assert.match(fs.readFileSync(require.resolve('../artifacts/speech-prompt-lab/index.html'),'utf8'),/id="cadence-mode-toggle"[^>]*role="switch"[^>]*aria-label="Live evaluation"/);
+});
+
 function liveHarness(options = {}) {
   const {get} = controls(), requests=[], timers=[], comparisons=[], storage=new Map();
   if (options.progress) storage.set('cadence-live-progress-v1',JSON.stringify(options.progress));
-  const current={id:'current-before',kind:'baseline',status:'finished',sampleId:'sample-01',requestedModel:'real-model',rawOutput:'Original actual response.',promptUsed:'Transcribe the audio. Output only the transcript.',recording:{fileName:'current.wav'},excerpt:{startOffset:0,length:15},performance:{accessibilityScore:options.unscored?null:40}};
+  const current={id:'current-before',kind:'baseline',status:'finished',sampleId:'sample-01',requestedModel:'real-model',rawOutput:'Original actual response.',promptUsed:'Transcribe the audio. Output only the transcript.',recording:{fileName:'current.wav'},excerpt:{startOffset:0,length:15},performance:{accessibilityScore:options.unscored?null:40},speechGuidance:options.guidance,speechPatterns:options.patterns};
   const oldBefore={...current,id:'past-before',sampleId:'sample-03',recording:{fileName:'past.wav'},excerpt:{startOffset:0,length:133.7469375},rawOutput:'Past original.',performance:{accessibilityScore:62}};
   const oldAfter={...oldBefore,id:'past-after',kind:'candidate',rawOutput:'Past improved.',performance:{accessibilityScore:78}};
   const historical={id:'past',comparable:true,before:oldBefore,after:oldAfter};
-  const prepared={id:'prepared',prepared:true,before:current,review:{id:'review',verifiedFindings:[],suggestedPrompt:preset.prompt}};
+  const prepared={id:'prepared',prepared:true,before:current,review:{id:'review',verifiedFindings:[],suggestedPrompt:preset.prompt,...options.review}};
   let active=null, complete=false;
   const resultNode={dataset:{},classList:{add(){}},unscoredRemoved:[]};
   const content={innerHTML:'',insertAdjacentHTML(_,html){this.innerHTML=html+this.innerHTML;},querySelector(selector){return selector==='.compare-live-results'?resultNode:selector.includes('.compare-result-score')?{remove(){resultNode.unscoredRemoved.push(selector);}}:null;}};
@@ -55,7 +69,8 @@ function liveHarness(options = {}) {
   const after=()=>({...current,id:'new-run',kind:'candidate',workflow:'recording-comparison',status:'finished',rawOutput:'New improved.',sandbox:{beforeRunId:current.id},performance:{accessibilityScore:options.unscored?null:options.afterScore??80}});
   const sandbox={URLSearchParams,sessionStorage:{getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value)},location:{hash:'#/simulation'},document:{getElementById:id=>content.innerHTML.includes(`id="${id}"`)?get(id):null},async fetch(url,requestOptions){const method=requestOptions?.method||'GET';const body=requestOptions?.body?JSON.parse(requestOptions.body):undefined;requests.push({url,method,body});let data;
     if(url==='/api/live/status')data=status();
-    else if(url==='/api/live/previous-runs')data={runs:options.emptyPreparedHistory?[]:[prepared],historicalRuns:[historical]};
+    else if(url==='/api/live/previous-runs'){if(options.historyUnavailable)throw new Error('Previous runs service is unavailable');data={runs:options.emptyPreparedHistory?[]:[prepared],historicalRuns:[historical]};}
+    else if(url==='./live-prepared-history.json')data={pairs:[historical]};
     else if(url==='/api/live/models'){models=[{id:'real-model'}];data={models,preferred:'real-model'};}
     else if(url==='/api/live/adopt')data={...prepared,pairId:'prepared',proposedPrompt:preset.prompt};
     else if(url==='/api/live/baseline'){complete=false;active={id:'current-before',kind:'baseline',status:'streaming',workflow:'recording-comparison'};data={job:active};}
@@ -69,6 +84,17 @@ function liveHarness(options = {}) {
     else throw new Error(`Unexpected request ${url}`);
     return {ok:true,json:async()=>data};
   },window:{CadenceMode:{live:true,storageKey:kind=>`cadence-live-${kind}-v1`},setTimeout(fn){timers.push(fn);return timers.length;},CadenceSimulation:{scorecardMarkup:{performance:run=>`<section>Accessibility ${run.performance?.accessibilityScore}</section>`,finding:()=>'',edits:()=>'',promptDiff:()=>'<div>Exact proposed prompt</div>'}},CadenceComparison:{renderSaved(ctx,pair,filename){comparisons.push({pair,filename});ctx.content.innerHTML=`<h1>Results Summary</h1><p>${filename}</p>`;}}}};
+  if (options.enhanced) Object.assign(sandbox.window.CadenceSimulation.scorecardMarkup,{
+    groupedFindings:findings=>`<div>Grouped findings ${findings.map(item=>item.quote).join('|')}</div>`,
+    speechPatterns:run=>`<section>Speech patterns in this recording ${run.speechPatterns?.patterns?.map(item=>item.label).join('|')||''}</section>`,
+    enhancedEdits:(_,edits)=>`<section>Supported edits ${edits.map(item=>item.new_text).join('|')}</section>`,
+    promptDiff:diff=>`<div>Exact proposed prompt ${JSON.stringify(diff)}</div>`
+  });
+  if (options.richComparison) sandbox.window.CadenceComparison.renderCompleted=(ctx,comparison,config)=>{
+    comparisons.push({comparison,filename:comparison.before.recording.fileName});
+    ctx.content.innerHTML='<h1>Results Summary</h1><div>Rich comparison and prompt changes</div>';
+    config.onRendered();
+  };
   vm.runInNewContext(liveCode,sandbox);
   const api=sandbox.window.CadenceLiveFlow,ctx={content,experiment:{selectedId:'sample-01',model:'real-model'},samples:[{id:'sample-01',audio_filename:'current.wav'}],saveExperiment(){}};
   return {api,ctx,sandbox,requests,timers,comparisons,get,content,preset,historical,resultNode};
@@ -171,11 +197,55 @@ test('preparation failure remains visible after status and previous-run refresh'
   assert.match(h.content.innerHTML,/Preparation service failed/);
   assert.equal(h.api.isBusy(),false);
 });
+test('unscored live baseline keeps speech evidence and exact preset guidance without an evaluator call', async()=>{
+  const instruction=preset.prompt.split('\r\n\r\n').find(value=>value.startsWith('Remove hesitation fillers'));
+  const h=liveHarness({unscored:true,enhanced:true,patterns:{patterns:[{label:'Word repetitions'}]},guidance:{findings:[{id:'observed-1',quote:'Original actual response.',verified:true,speechPattern:'Word repetitions'}],edits:[{id:'edit-1',new_text:instruction}]}});
+  h.api.render(h.ctx,'/simulation');await settle();
+  await h.get('live-run-baseline').handlers.click();await h.timers.shift()();await settle();
+  assert.match(h.content.innerHTML,/Add a reference transcript to score this recording/);
+  assert.match(h.content.innerHTML,/Speech patterns in this recording Word repetitions/);
+  assert.match(h.content.innerHTML,/Grouped findings Original actual response/);
+  assert.ok(h.content.innerHTML.includes(instruction));
+  assert.doesNotMatch(h.content.innerHTML,/Accessibility null/);
+  assert.equal(h.requests.some(item=>item.url.includes('/evaluation')),false);
+});
+test('prepared review cannot change the exact prompt preview used by the live preset test', async()=>{
+  const h=liveHarness({enhanced:true,review:{suggestedPrompt:'A different evaluator suggestion',diff:[{type:'added',text:'A different evaluator suggestion'}],promptUpdates:[{new_text:'A different evaluator suggestion'}]}});
+  h.api.render(h.ctx,'/simulation');await settle();await h.get('live-load-baseline').handlers.click();
+  h.sandbox.location.hash='#/scorecard';h.api.render(h.ctx,'/scorecard');
+  assert.ok(h.content.innerHTML.includes(JSON.stringify(preset.prompt)));
+  assert.doesNotMatch(h.content.innerHTML,/A different evaluator suggestion/);
+  await h.get('live-test-changes').handlers.click();
+  assert.equal(h.requests.find(item=>item.url==='/api/runs').body.promptPreset,preset.id);
+});
+test('rich live summary receives raw completed runs and real deltas and retains previous-run controls', async()=>{
+  const h=liveHarness({richComparison:true,afterScore:20});h.api.render(h.ctx,'/simulation');await settle();
+  await h.get('live-load-baseline').handlers.click();h.sandbox.location.hash='#/scorecard';h.api.render(h.ctx,'/scorecard');
+  await h.get('live-test-changes').handlers.click();await h.timers.shift()();await settle();
+  const {comparison}=h.comparisons.at(-1);
+  assert.equal(comparison.before.rawOutput,'Original actual response.');
+  assert.equal(comparison.after.rawOutput,'New improved.');
+  assert.equal(comparison.deltas.accessibilityScore,-20);
+  assert.equal(comparison.deltas.wordAccuracy,null);
+  assert.match(h.content.innerHTML,/Previous runs/);
+  assert.equal(h.resultNode.dataset.scoreChange,'negative');
+  assert.equal(h.requests.filter(item=>item.method==='POST').length,2);
+});
 test('revisiting live restores its own completed baseline through a read request', async()=>{
   const h=liveHarness({emptyPreparedHistory:true,progress:{baselineId:'current-before'}});
   h.sandbox.location.hash='#/scorecard';h.api.render(h.ctx,'/scorecard');await settle();
   assert.match(h.content.innerHTML,/Accessibility 40/);
   assert.equal(h.requests.filter(item=>item.url==='/api/jobs/current-before').length,1);
+  assert.ok(h.requests.every(item=>item.method==='GET'));
+});
+test('previous actual runs remain available when the live history service cannot respond',async()=>{
+  const h=liveHarness({historyUnavailable:true});h.api.render(h.ctx,'/simulation');await settle();
+  assert.ok(h.requests.some(item=>item.url==='./live-prepared-history.json'));
+  assert.match(h.content.innerHTML,/past.wav/);
+  h.get('live-previous-run').handlers.change({currentTarget:{value:'past'}});
+  await h.get('live-use-previous').handlers.click();
+  assert.equal(h.comparisons.at(-1).pair.old.text,'Past original.');
+  assert.equal(h.comparisons.at(-1).pair.new.text,'Past improved.');
   assert.ok(h.requests.every(item=>item.method==='GET'));
 });
 test('live results mark negative and unchanged actual scores without coloring them as an improvement', async()=>{

@@ -277,6 +277,7 @@
         </div>
         <div class="tab-panel" id="panel-prompt" role="tabpanel" aria-labelledby="tab-prompt"${activeAgentTab === "prompt" ? "" : " hidden"}>
           <div class="field"><label for="prompt-input">System prompt</label><textarea id="prompt-input"${window.CadenceMode?.live ? " readonly" : ""} placeholder="Paste the agent's system prompt…">${escapeHtml(experiment.prompt)}</textarea></div>
+          ${!window.CadenceDemoFlow?.enabled && !window.CadenceMode?.live ? '<p class="field-help">Click Evaluate your voice agent to see what to improve in your prompt.</p>' : ""}
         </div>
       </section>
     </section>

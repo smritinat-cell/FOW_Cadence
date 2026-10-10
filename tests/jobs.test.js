@@ -4,6 +4,7 @@ const { EventEmitter } = require("node:events");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const crypto = require("node:crypto");
 const { Jobs } = require("../lib/jobs");
 
 // Never consume the real credential in this test process.
@@ -38,7 +39,7 @@ function fixture(options = {}) {
         ],
         findings: [{ id: "i", parameter_id: "intake.fillers_trailing", severity: "low", confidence: "high", prompt_coverage: "none", coverage_quote: "", title: "Hesitation", quote: "um", why_it_matters: "Do not guess." }],
         prompt_edits: [{ id: "e", category: "clarification behaviour", addresses: ["i"], rationale: "Clarify.", type: "append", new_text: "Ask to repeat unclear words.", expected_effect: "Avoid guesses.", verify_by: "Check clarification." }],
-      }) : "raw, um... words";
+      }) : options.audioOutput ? options.audioOutput(calls.at(-1).settings) : "raw, um... words";
       this.message({ type: "transcript", role: "user", ordinal: 0, text: "Separate provider input", final: true });
       this.message({ type: "transcript", role: "agent", ordinal: 1, delta: "superseded", final: false });
       this.message({ type: "transcript", role: "agent", ordinal: 1, text, final: !options.unfinished });
@@ -80,6 +81,7 @@ function fixture(options = {}) {
         sockets.push(socket);
         return socket;
       },
+      ...(options.fastAudio ? { sleep: async () => {} } : {}),
     },
   });
   return { jobs, calls, sockets,decoded,directory,cleanup() { fs.rmSync(directory, { recursive: true, force: true }); } };
@@ -109,6 +111,58 @@ test("candidate streams original audio with exact editor prompt and matched base
     const changed=await waitJob(f.jobs,f.jobs.start("candidate",{sampleId:"sample-01",startOffset:3,excerptLength:"10",model:base.requestedModel,pairedBaselineId:base.id,context},"owner").id);
     assert.equal(changed.error.code,"PAIR_MISMATCH");assert.equal(f.calls.length,2);
   }finally{f.cleanup();}
+});
+test("native runs preserve their own storage and do not reserve the recording-comparison budget", async () => {
+  const f = fixture({ fastAudio: true, timeouts: { baselineFinal: 1500 } });
+  let reserved = 0;
+  f.jobs.liveStore = { async reserve() { reserved++; throw new Error("The pilot budget is unavailable."); } };
+  try {
+    const run = await waitJob(f.jobs, f.jobs.start("baseline", { sampleId: "sample-01" }, "owner").id);
+    assert.equal(run.status, "finished");
+    assert.equal(run.rawOutput, "raw, um... words");
+    assert.equal(f.calls.length, 1);
+    assert.equal(reserved, 0);
+    assert.ok(fs.existsSync(path.join(f.directory, `${run.id}.json`)));
+  } finally { f.cleanup(); }
+});
+
+test("evaluation defaults to the exact raw baseline and an explicit candidate remains linked to its own evidence", async () => {
+  const f = fixture({ fastAudio: true, timeouts: { baselineFinal: 1500 }, audioOutput: settings => settings.systemPrompt === "Transcribe the audio. Output only the transcript." ? "raw, um... words" : "current um wording" });
+  try {
+    const context = { systemPrompt: "Keep this exact rule.", agentName: "Test", purpose: "Test purpose", speechProfileTags: ["Child"] };
+    const baseline = await waitJob(f.jobs, f.jobs.start("baseline", { sampleId: "sample-01", context }, "owner").id);
+    const candidate = await waitJob(f.jobs, f.jobs.start("candidate", { sampleId: "sample-01", context, model: baseline.requestedModel, pairedBaselineId: baseline.id }, "owner").id);
+    const rawBefore = baseline.rawOutput;
+    const ordinary = await waitJob(f.jobs, f.jobs.start("evaluation", { baselineId: baseline.id, context }, "owner").id);
+    assert.equal(ordinary.evaluatedRunId, baseline.id);
+    assert.equal(ordinary.reviewedTranscript, rawBefore);
+    assert.ok(ordinary.evaluatorInput.includes(`AGENT-PRODUCED TRANSCRIPT (EXACT, DO NOT REWRITE):\n${rawBefore}`));
+    assert.equal(ordinary.referenceInputSnapshot.referenceHash, baseline.metricInputSnapshot.referenceHash);
+    assert.equal(candidate.speechPatternSourceRunId, baseline.id);
+    assert.deepEqual(candidate.speechPatterns, baseline.speechPatterns);
+    const selected = await waitJob(f.jobs, f.jobs.start("evaluation", { baselineId: baseline.id, evaluatedRunId: candidate.id, context }, "owner").id);
+    assert.equal(selected.evaluatedRunId, candidate.id);
+    assert.equal(selected.reviewedTranscript, "current um wording");
+    assert.ok(selected.evaluatorInput.includes(`AGENT-PRODUCED TRANSCRIPT (EXACT, DO NOT REWRITE):\n${candidate.rawOutput}`));
+    assert.ok(selected.evaluatorInput.includes(`SPEECH-PATTERN EVIDENCE (BASELINE TRANSCRIPT, NOT GROUND TRUTH):\n${rawBefore}`));
+    assert.equal(baseline.rawOutput, rawBefore);
+    assert.equal(f.calls.length, 4);
+    for (const change of [{ ownerHash: "other" }, { excerpt: { ...candidate.excerpt, startOffset: 2 } }, { outputPartial: true }]) {
+      const invalid = { ...candidate, ...change, id: crypto.randomUUID() };
+      f.jobs.records.set(invalid.id, invalid);
+      assert.throws(() => f.jobs.start("evaluation", { baselineId: baseline.id, evaluatedRunId: invalid.id, context }, "owner"), error => ["NOT_FOUND", "PAIR_MISMATCH"].includes(error.code));
+    }
+    assert.equal(f.calls.length, 4);
+    const historic = { ...baseline, id: crypto.randomUUID() };
+    delete historic.workflow;
+    delete historic.speechPatterns; delete historic.understanding; delete historic.speechGuidance;
+    const immutable = JSON.stringify(historic);
+    const publicHistoric = f.jobs.public(historic);
+    assert.ok(publicHistoric.speechPatterns.patterns.length);
+    assert.ok(publicHistoric.speechGuidance.findings.length);
+    assert.equal(publicHistoric.rawOutput, rawBefore);
+    assert.equal(JSON.stringify(historic), immutable);
+  } finally { f.cleanup(); }
 });
 test("Scorecard Fix preset previews and tests the exact shipped prompt with mocked provider calls",async()=>{
   const f=fixture();
@@ -197,7 +251,7 @@ test("evaluator seed fallback uses the same input on the same call with only con
     assert.ok(socket.binary.every(frame => frame.data.every(byte => byte === 0)));
     assert.equal(socket.readyState, 3);
     assert.equal(evaluation.computedScores.overall, 98);
-    assert.equal(evaluation.rubric_version, "1.0.0");
+    assert.equal(evaluation.rubric_version, "1.1.0");
     assert.ok(evaluation.suggestedPrompt.startsWith(context.systemPrompt));
     assert.equal(evaluation.diff.filter(line => line.type !== "removed").map(line => line.text).join(""), evaluation.suggestedPrompt);
   } finally { f.cleanup(); }

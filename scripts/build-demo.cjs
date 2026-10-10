@@ -21,6 +21,7 @@ const recordings = samples.map(sample => {
 
 fs.mkdirSync(path.join(output, "audio"), { recursive: true });
 for (const asset of assets) fs.copyFileSync(path.join(source, asset), path.join(output, asset));
+fs.copyFileSync(path.join(root, "config", "live-prepared-history.json"), path.join(output, "live-prepared-history.json"));
 const indexPath = path.join(output, "index.html");
 let index = fs.readFileSync(indexPath, "utf8").replace('<html lang="en">', '<html lang="en" data-demo="true">');
 for (const asset of assets.filter(name => /\.(js|css)$/.test(name))) {

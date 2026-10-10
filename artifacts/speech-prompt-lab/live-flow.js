@@ -68,16 +68,33 @@
   }
   function scorecardMarkup() {
     const adopted = state.adopted;
-    if (!adoptionMatches()) return `${heading("Review of your agent", "03", "Review the recording before improving its prompt.")}<section class="compare-empty"><p>Run a baseline for the selected recording and model in Simulation.</p><a class="button" href="#/simulation">Go to Simulation</a></section>`;
+    if (!adoptionMatches()) return `${heading("Review of your agent", "03", "Review the recording before improving its prompt.")}<section class="compare-empty"><p>Run a baseline for the selected recording and model in Simulation.</p><a class="button" href="#/simulation">Go to Simulation</a></section>${[
+      ["Results from test", "Accessibility score", "Run a test to see your accessibility score."],
+      ["Speech patterns", "Speech patterns in this recording", "Run a test to review speech patterns."],
+      ["Transcript findings", "What to improve", "Run a test to see what needs attention."],
+      ["Recommended system prompt edits", "Make the next test clearer", "Run a test to see recommended prompt edits."],
+      ["Prompt changes", "Current and proposed", "Run a test to compare your prompt with suggested changes."]
+    ].map(([label, title, text]) => `<section class="score-section"><p class="section-label">${label}</p><h2>${title}</h2><p class="quiet-empty">${text}</p></section>`).join("")}`;
     const ui = window.CadenceSimulation.scorecardMarkup;
     const before = adopted.before;
     const review = adopted.review || {};
-    const findings = (review.verifiedFindings || review.parsedResult?.findings || []).filter(finding => finding.verified !== false && typeof finding.quote === "string" && before.rawOutput.includes(finding.quote));
-    const edits = review.promptUpdates || review.parsedResult?.promptEdits || [];
-    const proposed = adopted.proposedPrompt || review.suggestedPrompt || review.proposedPrompt || state.status?.promptPreset?.prompt || "";
-    const diff = adopted.promptDiff || review.diff || [{ type: "removed", text: before.promptUsed || BASELINE_PROMPT }, { type: "added", text: proposed }];
-    const reviewMarkup = review.id ? `<section class="score-section review-findings"><div class="score-section-heading"><div><p class="section-label">Transcript findings</p><h2>What to improve</h2></div></div>${findings.length ? `<div class="finding-list">${findings.map(ui.finding).join("")}</div>` : '<p class="quiet-empty">No findings were saved for this review.</p>'}</section>` : `<section class="score-section"><div class="score-section-heading"><div><p class="section-label">Baseline response</p><h2>${esc(filename(before))}</h2></div></div><pre class="output-block">${esc(before.rawOutput)}</pre></section>`;
-    return `${heading("Review of your agent", "03", "Review the transcript and test the improved system prompt.")}<div class="scorecard-content live-scorecard">${hasScores(before) ? ui.performance(before, (state.ctx.samples || []).find(item => String(item.id) === String(before.sampleId))) : ""}${reviewMarkup}<section class="score-section"><div class="score-section-heading"><div><p class="section-label">Recommended system prompt edits</p><h2>Make the next test clearer</h2></div></div>${edits.length ? ui.edits({ ...review, verifiedFindings: findings }, edits, { showApplyButtons: false }) : ""}<div class="score-proposal-preview"><div class="score-section-heading"><div><p class="section-label">Prompt changes</p><h2>Current and proposed</h2></div></div>${ui.promptDiff(diff)}<div class="proposal-test-actions"><button type="button" class="button" id="live-test-changes"${busy() || !state.status?.canRun || !proposed ? " disabled" : ""}>Test these changes</button></div></div></section></div>`;
+    const guidance = before.speechGuidance || {};
+    const findings = (review.verifiedFindings || review.parsedResult?.findings || guidance.findings || []).filter(finding => finding.verified !== false && typeof finding.quote === "string" && before.rawOutput.includes(finding.quote));
+    const proposed = state.status?.promptPreset?.prompt || adopted.after?.promptUsed || adopted.proposedPrompt || "";
+    const includedEdits = entries => (entries || []).filter(edit => {
+      const instruction = edit.new_text || edit.newText || edit.instruction;
+      return typeof instruction === "string" && Boolean(instruction.trim()) && proposed.includes(instruction);
+    });
+    const reviewedEdits = includedEdits(review.promptUpdates || review.parsedResult?.promptEdits);
+    const edits = reviewedEdits.length ? reviewedEdits : includedEdits(guidance.edits);
+    // This workflow always tests the shipped preset. Preview exactly that text,
+    // including when a prepared review contains a different suggested prompt.
+    const diff = [{ type: "removed", text: before.promptUsed || BASELINE_PROMPT }, { type: "added", text: proposed }];
+    const findingMarkup = ui.groupedFindings ? ui.groupedFindings(findings) : `<div class="finding-list">${findings.map(ui.enhancedFinding || ui.finding).join("")}</div>`;
+    const reviewMarkup = `<section class="score-section review-findings"><div class="score-section-heading"><div><p class="section-label">Transcript findings</p><h2>What to improve</h2></div></div>${findings.length ? findingMarkup : '<p class="quiet-empty">No supported speech-pattern findings were found in this response.</p>'}</section>`;
+    const performanceMarkup = hasScores(before) ? (ui.enhancedPerformance || ui.performance)(before, (state.ctx.samples || []).find(item => String(item.id) === String(before.sampleId))) : `<section class="score-section"><p class="section-label">Results from test</p><h2>${esc(filename(before))}</h2><div class="performance-grid">${["Accessibility score", "Key items captured", "Word accuracy"].map(label => `<article><span>${label}</span><p>Add a reference transcript to score this recording</p></article>`).join("")}</div></section>`;
+    const patternsMarkup = ui.speechPatterns ? ui.speechPatterns(before) : "";
+    return `${heading("Review of your agent", "03", "Review the transcript and test the improved system prompt.")}<div class="scorecard-content live-scorecard">${performanceMarkup}${patternsMarkup}${reviewMarkup}<section class="score-section"><div class="score-section-heading"><div><p class="section-label">Recommended system prompt edits</p><h2>Make the next test clearer</h2></div></div>${edits.length ? (ui.enhancedEdits || ui.edits)({ ...review, verifiedFindings: findings }, edits, { showApplyButtons: false }) : '<p class="quiet-empty">The improved prompt is ready to test with this recording.</p>'}<div class="score-proposal-preview"><div class="score-section-heading"><div><p class="section-label">Prompt changes</p><h2>Current and proposed</h2></div></div>${ui.promptDiff(diff)}<div class="proposal-test-actions"><button type="button" class="button" id="live-test-changes"${busy() || !state.status?.canRun || !proposed ? " disabled" : ""}>Test these changes</button></div></div></section><details class="score-disclosure"><summary>Baseline response</summary><pre class="output-block">${esc(before.rawOutput)}</pre></details></div>`;
   }
   function normalizedPair(entry) {
     const pair = pairParts(entry);
@@ -111,11 +128,27 @@
     const header = previousMarkup() + (state.error ? `<p class="error-box" role="alert">${esc(state.error)} <button type="button" class="button secondary small" id="live-retry">Try again</button></p>` : "") + activeMarkup();
     if (state.route === "/comparison") {
       if (state.displayed && completePair(state.displayed)) {
-        const pair = normalizedPair(state.displayed);
-        window.CadenceComparison.renderSaved(ctx, pair, pair.old.source.name);
-        // The shared saved renderer draws actual supplied metrics; it never starts calls.
-        decorateComparison();
-        ctx.content.insertAdjacentHTML("afterbegin", header);
+        const renderer = window.CadenceComparison;
+        if (renderer.renderCompleted) {
+          const actual = pairParts(state.displayed);
+          const clean = run => ({ ...run, performance: run.performance?.demo ? undefined : run.performance });
+          const before = clean(actual.before), after = clean(actual.after);
+          const deltas = {};
+          for (const field of ["accessibilityScore", "keyItemsCaptured", "wordAccuracy"]) {
+            const left = before.performance?.[field], right = after.performance?.[field];
+            deltas[field] = Number.isFinite(left) && Number.isFinite(right) ? Math.round((right - left) * 100) / 100 : null;
+          }
+          const comparison = { ...actual, before, after, comparable: true, deltas,
+            promptDiff: actual.promptDiff || [{ type: "removed", text: before.promptUsed || BASELINE_PROMPT }, { type: "added", text: after.promptUsed || "" }],
+            speechGuidance: before.speechGuidance?.edits || [] };
+          renderer.renderCompleted(ctx, comparison, { onRendered: () => {
+            decorateComparison(); ctx.content.insertAdjacentHTML("afterbegin", header); bind();
+          } });
+        } else {
+          const pair = normalizedPair(state.displayed);
+          renderer.renderSaved(ctx, pair, pair.old.source.name);
+          decorateComparison(); ctx.content.insertAdjacentHTML("afterbegin", header);
+        }
       } else ctx.content.innerHTML = `${header}${heading("Results Summary", "04", "Review completed results from the same recording.")}<section class="compare-empty"><p>${busy() ? "Your comparison will appear when the recording is complete." : "Complete a test in Scorecard, or choose a previous run."}</p><a class="button" href="#/scorecard">Go to Scorecard</a></section>`;
     } else ctx.content.innerHTML = header + (state.route === "/scorecard" ? scorecardMarkup() : simulationMarkup());
     bind();
@@ -132,7 +165,7 @@
     document.getElementById("live-stop")?.addEventListener("click", () => stop());
     document.getElementById("live-retry")?.addEventListener("click", refresh);
     const highlight = document.getElementById("highlight-changes");
-    if (highlight && state.route === "/comparison") highlight.addEventListener("change", () => { // Reattach persistent live controls after the shared transcript redraw.
+    if (highlight && state.route === "/comparison" && !window.CadenceComparison.renderCompleted) highlight.addEventListener("change", () => { // Reattach persistent live controls after the shared transcript redraw.
       decorateComparison();
       state.ctx.content.insertAdjacentHTML("afterbegin", previousMarkup() + activeMarkup());
       bind();
@@ -153,8 +186,17 @@
         state.ctx.saveExperiment?.();
       }
     } else state.error = results[0].reason.message;
-    if (results[1].status === "fulfilled") {
-      const previous = [...(results[1].value.runs || []), ...(results[1].value.historicalRuns || [])];
+    let history = results[1].status === "fulfilled" ? results[1].value : null;
+    if (!history) {
+      // This allowlisted, published artifact contains actual completed runs.
+      // Reading it never starts or retries a provider call.
+      try {
+        const saved = await request("./live-prepared-history.json");
+        history = { runs: [], historicalRuns: (saved.pairs || []).filter(completePair) };
+      } catch { /* A failed fallback leaves the server error and empty state visible. */ }
+    }
+    if (history) {
+      const previous = [...(history.runs || []), ...(history.historicalRuns || [])];
       state.history = [...new Map(previous.map(entry => [entry.id, entry])).values()];
       if (!state.displayed && state.progress.selectedPairId) { const prior = state.history.find(entry => String(entry.id) === String(state.progress.selectedPairId)); if (prior && completePair(prior)) { state.displayed = prior; state.pinned = true; state.historyId = String(prior.id); } }
     } else state.error = results[1].reason.message;

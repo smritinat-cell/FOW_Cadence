@@ -10,6 +10,11 @@
     location.reload();
   }
   function mount() {
+    const toggle = document.getElementById("cadence-mode-toggle");
+    if (toggle) {
+      toggle.setAttribute("aria-checked", String(mode === "live"));
+      toggle.addEventListener("click", () => setMode(mode === "live" ? "saved" : "live"));
+    }
     const logo = document.querySelector(".brand-logo");
     if (!logo) return;
     logo.setAttribute("tabindex", "0");
