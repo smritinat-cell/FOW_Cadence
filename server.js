@@ -107,6 +107,12 @@ function readDemoSamples() {
     const audioPath = localAudioPath(source, jsonPath);
     const uploadedAudio = uploadedAudioPath(source);
     const sampleId = String(source.id ?? path.basename(filename, ".json"));
+    const speechProfileTags = Array.isArray(source.speech_profile_tags)
+      ? source.speech_profile_tags
+        .filter((tag) => typeof tag === "string")
+        .map((tag) => tag.trim())
+        .filter(Boolean)
+      : [];
     const {
       prototype_audio_file: _prototypeAudioFile,
       ...publicSource
@@ -115,15 +121,20 @@ function readDemoSamples() {
       ...publicSource,
       id: sampleId,
       title: source.title ?? source.name ?? "Untitled sample",
+      agent_name: source.agent_name ?? source.agentName ?? "",
       speech_profile:
         source.speech_profile ??
         source.speechProfile ??
         source.profile ??
-        "Speech profile not specified",
+        (speechProfileTags.length
+          ? speechProfileTags.join(" · ")
+          : "Speech profile not specified"),
+      speech_profile_tags: speechProfileTags,
       duration_seconds:
         source.duration_seconds ?? source.durationSeconds ?? source.duration ?? null,
       agent_purpose:
         source.agent_purpose ?? source.agentPurpose ?? source.purpose ?? "",
+      system_prompt: source.system_prompt ?? source.systemPrompt ?? "",
       reference_transcript:
         source.reference_transcript ??
         source.referenceTranscript ??

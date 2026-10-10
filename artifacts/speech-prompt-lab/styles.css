@@ -75,6 +75,8 @@ h1 { margin: 0; font: 700 clamp(27px, 3vw, 36px)/1.15 var(--font-display); lette
 .sample-copy { min-width: 0; }
 .sample-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: var(--brand-pale); color: var(--brand-dark); }
 .sample-icon svg { width: 17px; height: 17px; }
+.profile-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.profile-tag { display: inline-flex; padding: 2px 5px; border-radius: 4px; color: var(--brand-dark); background: var(--brand-pale); font-size: 9px; line-height: 1.35; }
 .sample-select:focus-visible, .sample-play:focus-visible { outline-offset: 4px; }
 .sample-title { display: block; overflow: hidden; color: #263f40; font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .sample-profile { display: block; overflow: hidden; margin-top: 3px; color: #71827f; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }

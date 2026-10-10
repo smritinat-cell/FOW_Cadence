@@ -13,6 +13,7 @@
   let samples = [];
   let samplesError = "";
   let route = "/setup";
+  let activeAgentTab = "connect";
   let waveformRequest = 0;
   let saveTimer = null;
 
@@ -27,6 +28,10 @@
   const stored = readStored();
   const experiment = {
     selectedId: stored.selectedId || null,
+    agentName: typeof stored.agentName === "string" ? stored.agentName : "",
+    speechProfileTags: Array.isArray(stored.speechProfileTags)
+      ? stored.speechProfileTags.filter(tag => typeof tag === "string")
+      : [],
     purpose: typeof stored.purpose === "string" ? stored.purpose : "",
     agentId: typeof stored.agentId === "string" ? stored.agentId : "",
     prompt: typeof stored.prompt === "string" ? stored.prompt : "",
@@ -75,15 +80,24 @@
   }
 
   function sampleCards() {
-    const cards = samples.slice(0, 3).map((sample, index) => ({
-      sample,
-      id: String(sample.id ?? `sample-${index}`),
-      title: sample.title || "Untitled demo sample",
-      profile: sample.speech_profile || "Speech profile not specified",
-      duration: durationText(sample.duration_seconds)
-    }));
+    const cards = samples.slice(0, 3).map((sample, index) => {
+      const profileTags = Array.isArray(sample.speech_profile_tags)
+        ? sample.speech_profile_tags.filter(tag => typeof tag === "string" && tag.trim()).map(tag => tag.trim())
+        : [];
+      const fallbackTags = String(sample.speech_profile || "Speech profile not specified")
+        .split(" · ")
+        .filter(Boolean);
+      return {
+        sample,
+        id: String(sample.id ?? `sample-${index}`),
+        agentName: sample.agent_name || sample.title || "Untitled agent",
+        title: sample.title || "Untitled demo sample",
+        profileTags: profileTags.length ? profileTags : fallbackTags,
+        duration: durationText(sample.duration_seconds)
+      };
+    });
     while (cards.length < 3) {
-      cards.push({ sample: null, id: `placeholder-${cards.length + 1}`, title: "Sample unavailable", profile: "No demo sample available", duration: "" });
+      cards.push({ sample: null, id: `placeholder-${cards.length + 1}`, agentName: "Sample unavailable", title: "Sample unavailable", profileTags: [], duration: "" });
     }
     return cards;
   }
@@ -116,12 +130,17 @@
         const selected = String(experiment.selectedId) === card.id;
       const placeholder = !card.sample;
       const playDisabled = placeholder || !card.sample.audio_url;
+      const profileTags = card.profileTags.map(tag => `<span class="profile-tag">${escapeHtml(tag)}</span>`).join("");
       return `<div class="sample-card${selected ? " selected" : ""}">
-        <button type="button" class="sample-select" data-sample-id="${escapeHtml(card.id)}" aria-pressed="${selected}">
+        <button type="button" class="sample-select" data-sample-id="${escapeHtml(card.id)}" aria-pressed="${selected}"${placeholder ? " disabled" : ""}>
           <span class="sample-icon" aria-hidden="true">
             <svg viewBox="0 0 20 20" fill="none"><path d="M3.5 8v4M7 5.5v9M10.5 3.5v13M14 6.5v7M17 8.5v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
           </span>
-          <span class="sample-copy"><span class="sample-title">${escapeHtml(card.title)}</span><span class="sample-profile">${escapeHtml(card.profile)}</span></span>
+          <span class="sample-copy">
+            <span class="sample-title">${escapeHtml(card.agentName)}</span>
+            ${placeholder ? "" : `<span class="sample-profile">${escapeHtml(card.title)}</span>`}
+            ${profileTags.length ? `<span class="profile-tags" aria-label="Speech profile tags">${profileTags}</span>` : ""}
+          </span>
         </button>
         <span class="sample-meta">${escapeHtml(card.duration)}${placeholder ? '<span class="sample-state">UNAVAILABLE</span>' : ""}</span>
         <button type="button" class="sample-play" data-play-sample="${escapeHtml(card.id)}"${playDisabled ? " disabled" : ""} aria-label="Play ${escapeHtml(card.title)} preview">
@@ -153,7 +172,7 @@
           ${audioPanel(sample)}
         </section>
         <section class="panel" aria-labelledby="purpose-label">
-          <div class="panel-header"><div><h2 class="section-title">Agent context</h2><p class="section-subtitle">The purpose is prefilled from the selected sample and remains editable.</p></div><span class="tiny-label">EXPERIMENT SETUP</span></div>
+          <div class="panel-header"><div><h2 class="section-title">Agent context${sample?.agent_name ? ` · ${escapeHtml(sample.agent_name)}` : ""}</h2><p class="section-subtitle">The purpose is prefilled from the selected sample and remains editable.</p></div><span class="tiny-label">EXPERIMENT SETUP</span></div>
           <div class="field">
             <label for="purpose-input" id="purpose-label">What is this agent for?</label>
             <textarea class="purpose-input" id="purpose-input" placeholder="Select a sample to prefill its agent purpose…">${escapeHtml(experiment.purpose)}</textarea>
@@ -182,18 +201,18 @@
         <section class="panel" aria-labelledby="agent-tabs-title">
           <div class="panel-header"><div><h2 class="section-title" id="agent-tabs-title">Agent setup</h2><p class="section-subtitle">Choose how the agent context is provided.</p></div></div>
           <div class="tab-list" role="tablist" aria-label="Agent setup method">
-            <button class="tab-button" id="tab-connect" role="tab" aria-selected="true" aria-controls="panel-connect" type="button">Connect agent</button>
-            <button class="tab-button" id="tab-prompt" role="tab" aria-selected="false" aria-controls="panel-prompt" type="button">Paste system prompt</button>
-            <button class="tab-button" id="tab-upload" role="tab" aria-selected="false" aria-controls="panel-upload" type="button">Upload call audio</button>
+            <button class="tab-button" id="tab-connect" role="tab" aria-selected="${activeAgentTab === "connect"}" tabindex="${activeAgentTab === "connect" ? 0 : -1}" aria-controls="panel-connect" type="button">Connect agent</button>
+            <button class="tab-button" id="tab-prompt" role="tab" aria-selected="${activeAgentTab === "prompt"}" tabindex="${activeAgentTab === "prompt" ? 0 : -1}" aria-controls="panel-prompt" type="button">Paste system prompt</button>
+            <button class="tab-button" id="tab-upload" role="tab" aria-selected="${activeAgentTab === "upload"}" tabindex="${activeAgentTab === "upload" ? 0 : -1}" aria-controls="panel-upload" type="button">Upload call audio</button>
           </div>
-          <div class="tab-panel" id="panel-connect" role="tabpanel" aria-labelledby="tab-connect">
+          <div class="tab-panel" id="panel-connect" role="tabpanel" aria-labelledby="tab-connect"${activeAgentTab === "connect" ? "" : " hidden"}>
             <div class="connect-row"><div class="field"><label for="agent-id">Agent ID</label><input id="agent-id" type="text" value="${escapeHtml(experiment.agentId)}" placeholder="Enter an agent ID"></div><button class="button secondary" id="connect-button" type="button">Coming soon</button></div>
             <p class="inline-feedback" id="connect-feedback" aria-live="polite"></p>
           </div>
-          <div class="tab-panel" id="panel-prompt" role="tabpanel" aria-labelledby="tab-prompt" hidden>
+          <div class="tab-panel" id="panel-prompt" role="tabpanel" aria-labelledby="tab-prompt"${activeAgentTab === "prompt" ? "" : " hidden"}>
             <div class="field"><label for="prompt-input">System prompt</label><textarea id="prompt-input" placeholder="Paste the agent's system prompt…">${escapeHtml(experiment.prompt)}</textarea></div>
           </div>
-          <div class="tab-panel" id="panel-upload" role="tabpanel" aria-labelledby="tab-upload" hidden>
+          <div class="tab-panel" id="panel-upload" role="tabpanel" aria-labelledby="tab-upload"${activeAgentTab === "upload" ? "" : " hidden"}>
             <div class="usecases"><span class="usecase-mark" aria-hidden="true">i</span><span>Coming soon: upload your own recording.</span></div>
           </div>
         </section>
@@ -262,14 +281,42 @@
   function bindSetup() {
     function selectSample(id) {
       const selected = samples.find(sample => String(sample.id) === id);
-      experiment.selectedId = selected ? selected.id : id;
-      experiment.purpose = selected && typeof selected.agent_purpose === "string" ? selected.agent_purpose : "";
+      if (!selected) return false;
+      if (String(experiment.selectedId) === String(selected.id)) return true;
+
+      const currentSample = getCurrentSample();
+      const currentPromptTemplate = typeof currentSample?.system_prompt === "string"
+        ? currentSample.system_prompt
+        : "";
+      const nextPrompt = typeof selected.system_prompt === "string"
+        ? selected.system_prompt
+        : null;
+      const promptHasEdits = experiment.prompt !== currentPromptTemplate;
+      if (nextPrompt !== null && experiment.prompt !== nextPrompt && promptHasEdits) {
+        const nextAgentName = selected.agent_name || selected.title || "the selected sample";
+        const replaceDraft = window.confirm(
+          `Your system prompt has been edited. Replace your draft with ${nextAgentName}'s sample prompt? Your current draft will be lost.`
+        );
+        if (!replaceDraft) return false;
+      }
+
+      experiment.selectedId = selected.id;
+      experiment.agentName = typeof selected.agent_name === "string" ? selected.agent_name : "";
+      experiment.speechProfileTags = Array.isArray(selected.speech_profile_tags)
+        ? selected.speech_profile_tags.filter(tag => typeof tag === "string")
+        : [];
+      experiment.purpose = typeof selected.agent_purpose === "string" ? selected.agent_purpose : "";
+      if (nextPrompt !== null) {
+        experiment.prompt = nextPrompt;
+        activeAgentTab = "prompt";
+      }
       const recordingLength = Number(selected?.duration_seconds) || 0;
       if (recordingLength > 0 && experiment.startOffset > recordingLength) {
         experiment.startOffset = recordingLength;
       }
       saveExperiment();
       setupScreen();
+      return true;
     }
 
     document.querySelectorAll(".sample-select").forEach(card => {
@@ -283,7 +330,7 @@
         const id = button.dataset.playSample;
         const selected = samples.find(sample => String(sample.id) === id);
         if (!selected?.audio_url) return;
-        if (String(experiment.selectedId) !== id) selectSample(id);
+        if (String(experiment.selectedId) !== id && !selectSample(id)) return;
         const player = document.getElementById("sample-audio");
         if (player) {
           player.play().catch(() => {
@@ -304,6 +351,7 @@
     agentId.addEventListener("input", () => { experiment.agentId = agentId.value; saveExperiment(); });
 
     document.querySelectorAll(".tab-button").forEach(tab => tab.addEventListener("click", () => {
+      activeAgentTab = tab.id.replace("tab-", "");
       document.querySelectorAll(".tab-button").forEach(other => {
         const selected = other === tab;
         other.setAttribute("aria-selected", String(selected));
@@ -416,6 +464,17 @@
       if (typeof stored.purpose !== "string" && experiment.selectedId != null) {
         const sample = getCurrentSample();
         if (sample) experiment.purpose = sample.agent_purpose || "";
+      }
+      const restoredSampleMetadata = getCurrentSample();
+      if (restoredSampleMetadata) {
+        if (typeof stored.agentName !== "string") {
+          experiment.agentName = restoredSampleMetadata.agent_name || "";
+        }
+        if (!Array.isArray(stored.speechProfileTags)) {
+          experiment.speechProfileTags = Array.isArray(restoredSampleMetadata.speech_profile_tags)
+            ? restoredSampleMetadata.speech_profile_tags.filter(tag => typeof tag === "string")
+            : [];
+        }
       }
       const restoredSample = getCurrentSample();
       const restoredDuration = Number(restoredSample?.duration_seconds) || 0;
