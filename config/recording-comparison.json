@@ -1,0 +1,71 @@
+{
+  "version": "recording-comparison-1",
+  "workflow": "recording-comparison",
+  "referencePolicy": {
+    "kind": "readable",
+    "version": "readable-1",
+    "description": "Preserve substantive speech in its original order, including meaningful yes and no responses. Remove hesitation fillers, collapse repetitions into completed wording, and retain final phrasing after abandoned starts. Preserve uncertainty with [unclear]."
+  },
+  "recordings": [
+    {
+      "sampleId": "sample-01",
+      "filename": "M_0061_14y8m_1.wav",
+      "title": "Stuttering and repetitions",
+      "sourceAudioSha256": "aac485bd314f243e611beab22ca711276e9806578299138e9f6bc2204d123163",
+      "excerpt": { "startOffset": 0, "length": 15 },
+      "speechProfileTags": ["Stuttering", "Repetitions"],
+      "reference": {
+        "verified": false,
+        "verifiedBy": null,
+        "verifiedAt": null,
+        "transcript": "For Christmas, I want some new games for my [unclear].",
+        "criticalItems": [
+          { "id": "christmas", "label": "Christmas", "phrases": ["Christmas"] },
+          { "id": "new-games", "label": "New games", "phrases": ["new games"] }
+        ],
+        "sourceUrl": "https://www.uclass.psychol.ucl.ac.uk/Transcript/Flat/Ortho/M_0061_14y8m_1.orth",
+        "sourceReferenceSha256": "41222bfa0ea1af5549d9a45e7be8c6b2118c08a7bc814546c6010f61a6082a8d",
+        "status": "published_source_draft_timing_unverified"
+      }
+    },
+    {
+      "sampleId": "sample-02",
+      "filename": "F_0101_10y4m_1.wav",
+      "title": "Slower speech",
+      "sourceAudioSha256": "7d15ff89870c7d5bc5ac83887d8ce16e4bb6b75769ee527c885e83dfa94e0b56",
+      "excerpt": { "startOffset": 0, "length": 15 },
+      "speechProfileTags": ["Slower speech"],
+      "reference": {
+        "verified": false,
+        "verifiedBy": null,
+        "verifiedAt": null,
+        "transcript": "And [unclear] went off. I [unclear] in it they had animation and computer work. It was quite funny.",
+        "criticalItems": [
+          { "id": "animation", "label": "Animation", "phrases": ["animation"] },
+          { "id": "computer-work", "label": "Computer work", "phrases": ["computer work"] }
+        ],
+        "sourceUrl": "https://www.uclass.psychol.ucl.ac.uk/Transcript/Flat/Ortho/F_0101_10y4m_1.orth",
+        "sourceReferenceSha256": "f2b222cc9f952553a4ca665ac3e1f93e8dd9e0a630d4acb2e8b507c6a480b470",
+        "status": "published_source_draft_timing_unverified"
+      }
+    },
+    {
+      "sampleId": "sample-03",
+      "filename": "F_0558_10y0m_1.wav",
+      "title": "Longer pauses",
+      "sourceAudioSha256": "958db8058b477b8b2d13d1244fc1ecf4ed85875f4f3d2ac87929101a62b315ad",
+      "excerpt": { "startOffset": 0, "length": 15 },
+      "speechProfileTags": ["Longer pauses"],
+      "reference": {
+        "verified": false,
+        "verifiedBy": null,
+        "verifiedAt": null,
+        "transcript": "",
+        "criticalItems": [],
+        "sourceUrl": null,
+        "sourceReferenceSha256": null,
+        "status": "awaiting_audio_review"
+      }
+    }
+  ]
+}

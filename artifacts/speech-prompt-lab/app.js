@@ -1,12 +1,12 @@
 (() => {
   "use strict";
 
-  const STORE_KEY = "speech-prompt-lab-experiment-v1";
+  const STORE_KEY = window.CadenceMode?.storageKey("experiment") || "speech-prompt-lab-experiment-v1";
   const routes = [
     { path: "/setup", title: "Set up an eval", index: "01" },
     { path: "/simulation", title: "Simulation", index: "02" },
     { path: "/scorecard", title: "Scorecard", index: "03" },
-    { path: "/comparison", title: "Before & after", index: "04" }
+    { path: "/comparison", title: "Results Summary", index: "04" }
   ];
   const content = document.getElementById("app-content");
   const breadcrumb = document.getElementById("breadcrumb-title");
@@ -15,6 +15,7 @@
   let samplesLoading = true;
   let route = "/setup";
   let activeAgentTab = "connect";
+  let agentConnection = "idle";
   let waveformRequest = 0;
   let saveTimer = null;
   let samplesLoaded = false;
@@ -43,6 +44,11 @@
 
   function subscribeSetupEvaluationLock() {
     if (unsubscribeEvaluationLock) unsubscribeEvaluationLock();
+    if (window.CadenceDemoFlow?.enabled || window.CadenceMode?.live) {
+      unsubscribeEvaluationLock = null;
+      applySetupEvaluationLock(false);
+      return;
+    }
     if (window.CadenceSimulation?.onEvaluationLockChange) {
       unsubscribeEvaluationLock = window.CadenceSimulation.onEvaluationLockChange(applySetupEvaluationLock);
     } else {
@@ -75,6 +81,11 @@
     startOffset: Number.isFinite(Number(stored.startOffset)) ? Math.max(0, Number(stored.startOffset)) : 0,
     excerptLength: ["15", "30", "60", "rest"].includes(String(stored.excerptLength)) ? String(stored.excerptLength) : "15"
   };
+  if (window.CadenceMode?.live) {
+    experiment.startOffset = 0;
+    experiment.excerptLength = "15";
+    experiment.prompt = "Transcribe the audio. Output only the transcript.";
+  }
 
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, character => ({
@@ -129,7 +140,7 @@
       agentName: String(sample?.agent_name || sample?.title || ""),
       purpose: typeof sample?.agent_purpose === "string" ? sample.agent_purpose : "",
       speechProfileTags: profileTags,
-      prompt: typeof sample?.system_prompt === "string" ? sample.system_prompt : "",
+      prompt: window.CadenceMode?.live ? "Transcribe the audio. Output only the transcript." : typeof sample?.system_prompt === "string" ? sample.system_prompt : "",
       reference: typeof sample?.reference_material === "string" ? sample.reference_material : ""
     };
   }
@@ -182,6 +193,7 @@
     if (!audioUrl) {
       return `<div class="selected-audio" aria-live="polite">
         <div class="audio-title"><strong class="section-title">Recording preview</strong><span class="audio-tag">NOT AVAILABLE</span></div>
+        ${sample.audio_filename ? `<div class="field-help">${escapeHtml(sample.audio_filename)}</div>` : ""}
         <div class="waveform"><div class="wave-empty">Preview isn’t available for this recording.</div></div>
       </div>`;
     }
@@ -193,7 +205,7 @@
       <audio id="sample-audio" controls preload="metadata" src="${escapeHtml(audioUrl)}">
         Audio playback isn’t available in this browser.
       </audio>
-      <div class="field-help">Preview the selected recording.</div>
+      <div class="field-help">${escapeHtml(sample.audio_filename || "Preview the selected recording.")}</div>
     </div>`;
   }
 
@@ -211,8 +223,8 @@
             <svg viewBox="0 0 20 20" fill="none"><path d="M3.5 8v4M7 5.5v9M10.5 3.5v13M14 6.5v7M17 8.5v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
           </span>
           <span class="sample-copy">
-            <span class="sample-title">${escapeHtml(card.agentName)}</span>
-            ${placeholder ? "" : `<span class="sample-profile">${escapeHtml(card.title)}</span>`}
+            <span class="sample-title">${escapeHtml(card.title)}</span>
+            ${card.sample?.audio_filename ? `<span class="sample-profile">${escapeHtml(card.sample.audio_filename)}</span>` : ""}
             ${profileTags.length ? `<span class="profile-tags" aria-label="Speech profile tags">${profileTags}</span>` : ""}
           </span>
         </button>
@@ -258,33 +270,30 @@
         <div class="tab-list" role="tablist" aria-label="Agent setup method">
           <button class="tab-button" id="tab-connect" role="tab" aria-selected="${activeAgentTab === "connect"}" tabindex="${activeAgentTab === "connect" ? 0 : -1}" aria-controls="panel-connect" type="button">Agent connection</button>
           <button class="tab-button" id="tab-prompt" role="tab" aria-selected="${activeAgentTab === "prompt"}" tabindex="${activeAgentTab === "prompt" ? 0 : -1}" aria-controls="panel-prompt" type="button">Paste system prompt</button>
-          <button class="tab-button" id="tab-upload" role="tab" aria-selected="${activeAgentTab === "upload"}" tabindex="${activeAgentTab === "upload" ? 0 : -1}" aria-controls="panel-upload" type="button">Call recording</button>
         </div>
         <div class="tab-panel" id="panel-connect" role="tabpanel" aria-labelledby="tab-connect"${activeAgentTab === "connect" ? "" : " hidden"}>
-          <div class="connect-row"><div class="field"><label for="agent-id">Agent ID</label><input id="agent-id" type="text" value="${escapeHtml(experiment.agentId)}" placeholder="Enter an agent ID"></div><button class="button secondary" id="connect-button" type="button" disabled>Agent connection isn’t available yet.</button></div>
+          <button class="button secondary" id="connect-button" type="button"${agentConnection === "connecting" ? " disabled" : ""}>${agentConnection === "connected" ? "Connected" : agentConnection === "connecting" ? "Connecting…" : "Connect your voice agent"}</button>
           <p class="inline-feedback" id="connect-feedback" aria-live="polite"></p>
         </div>
         <div class="tab-panel" id="panel-prompt" role="tabpanel" aria-labelledby="tab-prompt"${activeAgentTab === "prompt" ? "" : " hidden"}>
-          <div class="field"><label for="prompt-input">System prompt</label><textarea id="prompt-input" placeholder="Paste the agent's system prompt…">${escapeHtml(experiment.prompt)}</textarea></div>
-        </div>
-        <div class="tab-panel" id="panel-upload" role="tabpanel" aria-labelledby="tab-upload"${activeAgentTab === "upload" ? "" : " hidden"}>
-          <div class="usecases"><span class="usecase-mark" aria-hidden="true">i</span><span>Choose from the recordings available below.</span></div>
+          <div class="field"><label for="prompt-input">System prompt</label><textarea id="prompt-input"${window.CadenceMode?.live ? " readonly" : ""} placeholder="Paste the agent's system prompt…">${escapeHtml(experiment.prompt)}</textarea></div>
         </div>
       </section>
     </section>
     <div class="layout-grid">
       <div class="stack">
           <section class="panel" aria-labelledby="samples-title">
-          <div class="panel-header"><div><h2 class="section-title" id="samples-title">Step 2 · Choose a recording</h2><p class="section-subtitle">Selected automatically for this use case. You can choose a different recording.</p></div><span class="tiny-label">RECORDINGS</span></div>
+          <div class="panel-header"><div><h2 class="section-title" id="samples-title">Step 2 · Choose an audio clip to test with</h2></div><span class="tiny-label">RECORDINGS</span></div>
           ${samplesLoading ? '<p class="load-state" role="status" aria-busy="true">Loading recordings…</p>' : ""}
           ${samplesError ? `<p class="load-state error" role="alert">${escapeHtml(samplesError)} <button type="button" class="button secondary small" id="retry-samples">Try again</button></p>` : ""}
           ${!samplesLoading && !samplesError && samples.length === 0 ? '<p class="load-state" role="status">No recordings are available.</p>' : ""}
           ${!samplesLoading && !samplesError && samples.length > 0 && samples.length < 3 ? `<p class="load-state" role="status">Showing ${samples.length} recordings.</p>` : ""}
           <div class="sample-list" role="group" aria-label="Recording choices">${cardMarkup}</div>
           ${audioPanel(sample)}
+          ${window.CadenceDemoFlow?.preview(sample) || ""}
           <div class="excerpt-row">
-            <div class="field"><label for="start-offset">Start offset</label><input id="start-offset" type="number" inputmode="decimal" min="0" step="1" value="${escapeHtml(start)}" aria-describedby="offset-help excerpt-feedback"><span class="field-help" id="offset-help">Seconds from the beginning · default 0</span></div>
-            <div class="field duration-select"><label for="excerpt-length">Excerpt length</label><select id="excerpt-length">
+            <div class="field"><label for="start-offset">Start offset</label><input id="start-offset"${window.CadenceMode?.live ? " disabled" : ""} type="number" inputmode="decimal" min="0" step="1" value="${escapeHtml(start)}" aria-describedby="offset-help excerpt-feedback"><span class="field-help" id="offset-help">Seconds from the beginning · default 0</span></div>
+            <div class="field duration-select"><label for="excerpt-length">Excerpt length</label><select id="excerpt-length"${window.CadenceMode?.live ? " disabled" : ""}>
               <option value="15"${experiment.excerptLength === "15" ? " selected" : ""}>15 seconds</option>
               <option value="30"${experiment.excerptLength === "30" ? " selected" : ""}>30 seconds</option>
               <option value="60"${experiment.excerptLength === "60" ? " selected" : ""}>60 seconds</option>
@@ -311,10 +320,34 @@
     samplesError = "";
     if (location.hash === "#/setup") setupScreen();
     try {
-      const response = await fetch("/api/demo-samples");
+      if (window.CadenceDemoFlow?.enabled) await window.CadenceDemoFlow.load();
+      const response = await fetch(window.CadenceDemoFlow?.enabled ? "./demo-samples.json" : "/api/demo-samples");
       if (!response.ok) throw new Error();
       const data = await response.json();
       samples = validSamples(data).slice(0, 3);
+      if (window.CadenceMode?.live) {
+        const statusResponse = await fetch("/api/live/status", { credentials: "include" });
+        if (!statusResponse.ok) throw new Error();
+        const status = await statusResponse.json();
+        const recordings = samples;
+        samples = validSamples(status.clips).slice(0, 3).map(clip => {
+          const recording = recordings.find(item => String(item.id) === String(clip.sampleId)) || {};
+          return {
+            id: clip.sampleId,
+            title: clip.title,
+            audio_filename: clip.filename,
+            audio_url: clip.audioSrc || recording.audio_url,
+            duration_seconds: recording.duration_seconds,
+            agent_name: clip.context?.agentName || "Cadence recording transcription",
+            agent_purpose: clip.context?.purpose || "Produce a readable transcript from the selected recording.",
+            speech_profile_tags: clip.context?.speechProfileTags || [],
+            system_prompt: "Transcribe the audio. Output only the transcript.",
+            reference_material: "",
+            use_case_label: clip.title || clip.useCase?.label || clip.label,
+            use_case_summary: clip.useCase?.summary || "Compare the same recording before and after a prompt improvement."
+          };
+        });
+      }
       const hasStoredField = name => Object.prototype.hasOwnProperty.call(stored, name);
       const requestedId = stored.useCaseId ?? stored.selectedId;
       const restoredSample = samples.find(sample => String(sample.id) === String(requestedId)) ||
@@ -323,11 +356,11 @@
         experiment.selectedId = restoredSample.id;
         experiment.useCaseId = restoredSample.id;
         const defaults = sampleDefaults(restoredSample);
-        if (!hasStoredField("agentName") && !editedBeforeSamplesLoad.has("agentName")) experiment.agentName = defaults.agentName;
-        if (!hasStoredField("purpose") && !editedBeforeSamplesLoad.has("purpose")) experiment.purpose = defaults.purpose;
-        if (!hasStoredField("speechProfileTags") && !editedBeforeSamplesLoad.has("speechProfileTags")) experiment.speechProfileTags = defaults.speechProfileTags.slice();
+        if ((window.CadenceMode?.live || !hasStoredField("agentName")) && !editedBeforeSamplesLoad.has("agentName")) experiment.agentName = defaults.agentName;
+        if ((window.CadenceMode?.live || !hasStoredField("purpose")) && !editedBeforeSamplesLoad.has("purpose")) experiment.purpose = defaults.purpose;
+        if ((window.CadenceMode?.live || !hasStoredField("speechProfileTags")) && !editedBeforeSamplesLoad.has("speechProfileTags")) experiment.speechProfileTags = defaults.speechProfileTags.slice();
         if (!hasStoredField("prompt") && !editedBeforeSamplesLoad.has("prompt")) experiment.prompt = defaults.prompt;
-        if (!hasStoredField("reference") && !editedBeforeSamplesLoad.has("reference")) experiment.reference = defaults.reference;
+        if ((window.CadenceMode?.live || !hasStoredField("reference")) && !editedBeforeSamplesLoad.has("reference")) experiment.reference = defaults.reference;
       } else {
         experiment.selectedId = null;
         experiment.useCaseId = null;
@@ -366,7 +399,7 @@
         intro: "Run an evaluation to see what to improve in your prompt.",
         action: "Go to Simulation"
       },
-      "/comparison": { title: "Before & after", intro: "", action: "Go to Simulation" }
+      "/comparison": { title: "Results Summary", intro: "", action: "Go to Simulation" }
     }[path];
     content.innerHTML = `<div class="page-heading">
       <div><div class="eyebrow">Evaluation workspace / ${page.index}</div><h1>${escapeHtml(page.title)}</h1>
@@ -393,12 +426,20 @@
       if (active) link.setAttribute("aria-current", "page");
       else link.removeAttribute("aria-current");
     });
+    if (window.CadenceMode?.live && window.CadenceLiveFlow && route !== "/setup") {
+      window.CadenceLiveFlow.render({ content, experiment, samples, escapeHtml, saveExperiment }, route);
+      return;
+    }
+    if (window.CadenceDemoFlow?.enabled && route !== "/setup") {
+      window.CadenceDemoFlow.render({ content, experiment, samples, escapeHtml, saveExperiment }, route);
+      return;
+    }
     if (route !== "/setup" && unsubscribeEvaluationLock) {
       unsubscribeEvaluationLock();
       unsubscribeEvaluationLock = null;
     }
     if (route === "/setup") {
-      if (window.CadenceSimulation) {
+      if (window.CadenceSimulation && !window.CadenceDemoFlow?.enabled && !window.CadenceMode?.live) {
         window.CadenceSimulation.init({ content, experiment, samples, escapeHtml, saveExperiment }, { loadModels: false });
       }
       setupScreen();
@@ -491,7 +532,6 @@
     const purpose = document.getElementById("purpose-input");
     const prompt = document.getElementById("prompt-input");
     const reference = document.getElementById("reference-input");
-    const agentId = document.getElementById("agent-id");
     agentName.addEventListener("input", () => {
       experiment.agentName = agentName.value;
       if (!samplesLoaded) editedBeforeSamplesLoad.add("agentName");
@@ -517,7 +557,23 @@
       if (!samplesLoaded) editedBeforeSamplesLoad.add("reference");
       saveExperiment();
     });
-    agentId.addEventListener("input", () => { experiment.agentId = agentId.value; saveExperiment(); });
+    document.getElementById("connect-button").addEventListener("click", () => {
+      if (agentConnection !== "idle") return;
+      agentConnection = "connecting";
+      const button = document.getElementById("connect-button");
+      button.textContent = "Connecting…";
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+      window.setTimeout(() => {
+        agentConnection = "connected";
+        const current = document.getElementById("connect-button");
+        if (!current) return;
+        current.textContent = "Connected";
+        current.disabled = false;
+        current.removeAttribute("aria-busy");
+        document.getElementById("connect-feedback").textContent = "Your voice agent is connected.";
+      }, 700);
+    });
     document.getElementById("reset-sample-defaults")?.addEventListener("click", () => {
       const selected = getCurrentSample();
       if (!selected || !autoFieldsDiffer(sampleDefaults(selected))) return;

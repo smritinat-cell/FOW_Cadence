@@ -1,0 +1,80 @@
+/* Only the comparison cards extend the current Cadence theme. */
+.compare-test-meta h2 { overflow-wrap: anywhere; }
+.compare-header-row { gap: 12px; }
+.compare-counts { gap: 8px; }
+.compare-count { gap: 9px; padding: 8px 12px; border-radius: 8px; }
+.compare-count strong { font: 800 20px var(--font-display); }
+.compare-count span { font: 600 12px var(--font-ui); }
+.compare-count.removed { border-color: #f0d7d2; color: #a3342c; background: #fce6e2; }
+.compare-count.removed strong, .compare-count.removed span { color: #a3342c; }
+.compare-count.added { border-color: #cfe5d6; color: #246443; background: #e3f2e7; }
+.compare-count.added strong, .compare-count.added span { color: #246443; }
+.compare-highlight { gap: 8px; font: 500 12px var(--font-ui); color: var(--muted); }
+.compare-highlight input { width: 15px; height: 15px; accent-color: var(--brand-dark); }
+.compare-columns { gap: 18px; align-items: start; }
+.compare-panel { border-color: var(--line); border-radius: 14px; background: var(--surface); box-shadow: 0 6px 22px rgba(30, 62, 58, .035); }
+.compare-panel-head { align-items: start; padding: 19px 20px 16px; border-color: var(--line); }
+.compare-panel-head h2 { color: var(--ink); font: 800 20px var(--font-display); letter-spacing: -.4px; }
+.compare-response-label { margin: 0 0 7px; color: var(--muted); font: 10px var(--font-mono); letter-spacing: .07em; text-transform: uppercase; }
+.compare-panel.old .compare-response-label { color: #a3342c; }
+.compare-panel.new .compare-response-label { color: #246443; }
+.compare-prompt { padding: 13px 20px; border-color: var(--line); }
+.compare-prompt summary { margin: 0; cursor: pointer; }
+.compare-prompt[open] .compare-prompt-text { margin-top: 9px; }
+.compare-prompt-text { font-size: 11px; }
+.compare-transcript { height: 430px; max-height: none; padding: 22px 20px; color: var(--ink); font: 13px/1.9 var(--font-mono); tab-size: 4; }
+.compare-transcript .removed { color: #a3342c; background: #fce6e2; text-decoration-color: #b92f27; }
+.compare-transcript .added { color: #246443; background: #e3f2e7; }
+.compare-transcript:focus-visible { outline: 2px solid var(--brand-dark); outline-offset: -3px; }
+.compare-actions { padding: 14px 20px; gap: 8px; border-color: var(--line); }
+.compare-actions .button { padding: 8px 11px; font-size: 11px; }
+.compare-feedback { padding: 0 20px 12px; color: var(--muted); font-size: 11px; }
+.compare-feedback:empty { display: none; }
+.compare-fallback-note { margin: 0; padding: 11px 14px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: var(--surface); font: 12px var(--font-ui); }
+@media (max-width: 760px) {
+  .compare-columns { grid-template-columns: minmax(0, 1fr); }
+  .compare-transcript { height: 360px; }
+}
+@media (max-width: 520px) {
+  .compare-count { padding: 7px 10px; }
+  .compare-panel-head, .compare-prompt, .compare-actions { padding-left: 16px; padding-right: 16px; }
+  .compare-transcript { padding: 18px 16px; font-size: 12px; }
+}
+.demo-stage-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); gap: 18px; align-items: start; margin-top: 18px; }
+.demo-stage-grid > .score-section { min-width: 0; }
+.demo-before-run { grid-template-columns: minmax(0, 1fr); }
+.demo-prompt-editor { width: 100%; min-height: 150px; resize: vertical; }
+.sim-run-buttons { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
+.demo-run-loading { display: grid; justify-items: start; gap: 14px; }
+.demo-run-loading h2, .demo-run-loading p { margin: 0; }
+.demo-run-loading p { color: var(--muted); }
+.demo-run-spinner { width: 28px; height: 28px; border: 3px solid var(--line); border-top-color: var(--brand-dark); border-radius: 50%; animation: demo-run-spin .85s linear infinite; }
+@keyframes demo-run-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .demo-run-spinner { animation: none; } }
+@media (min-width: 701px) { .context-fields { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } }
+.demo-transcript { max-height: 490px; font-size: 12px; line-height: 1.8; }
+.demo-review-copy { color: var(--muted); font: 13px/1.8 var(--font-ui); }
+.demo-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.demo-completed { display: grid; gap: 15px; margin-top: 22px; }
+.demo-completed > .sim-state { justify-self: start; }
+.demo-fixed-output { display: grid; gap: 16px; margin-top: 18px; }
+.demo-mode-badge { padding: 5px 10px; border-radius: 6px; background: var(--brand-pale); color: var(--brand-dark); font: 600 11px var(--font-ui); }
+@media (max-width: 760px) { .demo-stage-grid { grid-template-columns: minmax(0, 1fr); } }
+.compare-result-score { display:grid; gap:12px; margin:0 22px 18px; padding:18px; border:1px solid #d8e7dd; border-radius:12px; background:#f4f8f4; }
+.compare-result-score > strong { color:#41675a; font:700 25px/1.2 var(--font-display); }
+.compare-result-score > strong small { margin-left:5px; color:#788680; font:12px var(--font-ui); }
+.compare-result-metrics { display:grid; grid-template-columns:1fr 1fr; gap:14px; padding-top:12px; border-top:1px solid #d8e7dd; }
+.compare-result-metrics > div { display:grid; gap:6px; }
+.compare-result-metrics span { color:#788680; font:10px var(--font-mono); text-transform:uppercase; }
+.compare-result-metrics b { color:#344e49; font:700 18px var(--font-display); }
+.compare-panel.old .compare-result-score { border-color:#f2d1cd; background:#fff6f4; }
+.compare-panel.old .compare-result-score > strong { color:var(--brand-dark); }
+.demo-scorecard .performance-grid > article { border-color:#f2d1cd; background:#fff6f4; }
+.demo-scorecard .performance-grid > article > span,
+.demo-scorecard .performance-grid > article > strong,
+.demo-scorecard .performance-grid > article > strong small,
+.demo-scorecard .performance-grid > article > p { color:var(--brand-dark); }
+.demo-scorecard .score-edit-groups { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.demo-scorecard .score-edit-group { display:grid; grid-template-rows:auto 1fr; }
+.demo-scorecard .score-edit-list { grid-template-columns:minmax(0,1fr); }
+@media (max-width:760px) { .demo-scorecard .score-edit-groups { grid-template-columns:minmax(0,1fr); } }

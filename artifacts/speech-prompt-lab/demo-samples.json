@@ -1,0 +1,69 @@
+[
+  {
+    "id": "sample-01",
+    "title": "Stuttering and repetitions",
+    "use_case_label": "Teen pre-visit intake",
+    "use_case_summary": "Collect the reason for visit, symptoms, medications and allergies from adolescent patients before an appointment.",
+    "agent_name": "Riverbend Teen Intake Assistant",
+    "speech_profile": "Adolescent · Male · Age 14y8m · Casual conversational speech · Frequent fillers and trailing sentences · Possible overlapping speakers",
+    "speech_profile_tags": [
+      "Adolescent",
+      "Male",
+      "Age 14y8m",
+      "Casual conversational speech",
+      "Frequent fillers and trailing sentences",
+      "Possible overlapping speakers"
+    ],
+    "duration_seconds": 133.747,
+    "agent_purpose": "A pediatric clinic voice agent that completes pre-visit intake with adolescent patients, covering reason for visit, symptoms, current medications, allergies, and recent changes in sleep, mood or appetite.",
+    "system_prompt": "Transcribe the audio. Output only the transcript.",
+    "reference_transcript": "",
+    "critical_items": [],
+    "reference_material": "",
+    "audio_size_bytes": 11796524,
+    "audio_filename": "M_0061_14y8m_1.wav",
+    "audio_url": "/api/demo-samples/sample-01/audio"
+  },
+  {
+    "id": "sample-02",
+    "title": "Slower speech",
+    "use_case_label": "Child symptom check-in",
+    "use_case_summary": "Run a short, child-friendly wellness and symptom check-in with a parent or caregiver able to join.",
+    "agent_name": "Maple Kids Symptom Check-In",
+    "speech_profile": "Child · Age 10y4m",
+    "speech_profile_tags": [
+      "Child",
+      "Age 10y4m"
+    ],
+    "duration_seconds": 150.08,
+    "agent_purpose": "A pediatric voice agent that runs a short, child-friendly symptom and wellness check-in with school-age children, with a parent or caregiver able to join, and prepares a summary for the care team.",
+    "system_prompt": "Transcribe the audio. Output only the transcript.",
+    "reference_transcript": "",
+    "critical_items": [],
+    "reference_material": "",
+    "audio_size_bytes": 6003244,
+    "audio_filename": "F_0101_10y4m_1.wav",
+    "audio_url": "/api/demo-samples/sample-02/audio"
+  },
+  {
+    "id": "sample-03",
+    "title": "Longer pauses",
+    "use_case_label": "After-hours nurse line",
+    "use_case_summary": "Gather symptom details from adolescent callers after hours and route them to emergency care, a same-night nurse callback, or a next-day appointment.",
+    "agent_name": "Harbor Pediatrics After-Hours Nurse Line",
+    "speech_profile": "Child · Age 10y0m",
+    "speech_profile_tags": [
+      "Child",
+      "Age 10y0m"
+    ],
+    "duration_seconds": 133.746939,
+    "agent_purpose": "An after-hours pediatric nurse-line voice agent that gathers symptom details from adolescent callers and routes the call to the right level of care: emergency, same-night nurse callback, or next-day appointment.",
+    "system_prompt": "Transcribe the audio. Output only the transcript.",
+    "reference_transcript": "",
+    "critical_items": [],
+    "reference_material": "",
+    "audio_size_bytes": 11796524,
+    "audio_filename": "F_0558_10y0m_1.wav",
+    "audio_url": "/api/demo-samples/sample-03/audio"
+  }
+]

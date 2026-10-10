@@ -120,6 +120,12 @@ function readDemoSamples() {
     } = source;
     return {
       ...publicSource,
+      // Prototype uploads have a Replit timestamp suffix; retain the source filename.
+      audio_filename: typeof source.audio_filename === "string"
+        ? path.basename(source.audio_filename)
+        : typeof source.prototype_audio_file === "string"
+          ? path.basename(source.prototype_audio_file).replace(/_\d{13}(?=\.[^.]+$)/, "")
+          : audioPath ? path.basename(audioPath) : null,
       id: sampleId,
       title: source.title ?? source.name ?? "Untitled sample",
       use_case_label: typeof source.use_case_label === "string" ? source.use_case_label : "",

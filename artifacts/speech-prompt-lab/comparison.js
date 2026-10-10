@@ -5,6 +5,8 @@
     demo: null,
     demoLoading: false,
     demoError: "",
+    fallback: null,
+    fallbackRequested: false,
     livePairs: new Map(),
     liveLoading: new Set(),
     liveErrors: new Map(),
@@ -16,6 +18,7 @@
   };
   let latestContext = null;
   let unsubscribeRuns = null;
+  const transcriptDiffs = new WeakMap();
 
   function debugMode() {
     return new URLSearchParams(location.search).get("debug") === "1";
@@ -48,6 +51,50 @@
   }
   function currentSample(ctx) {
     return (ctx.samples || []).find(sample => String(sample.id) === String(ctx.experiment.selectedId)) || null;
+  }
+  function recordingName(ctx, run) {
+    const sample = (ctx.samples || []).find(sample => String(sample.id) === String(run.sampleId));
+    const filename = sample?.audio_filename || run.recording?.fileName;
+    return typeof filename === "string" && filename
+      ? filename.split(/[\\/]/).pop().replace(/_\d{13}(?=\.[^.]+$)/, "")
+      : run.recording?.label || "Selected recording";
+  }
+  function ensureFallback() {
+    if (state.fallbackRequested) return;
+    state.fallbackRequested = true;
+    fetch("./comparison-results.json")
+      .then(async response => {
+        if (!response.ok) throw new Error("Unavailable");
+        const pair = await response.json();
+        if (typeof pair.old?.text !== "string" || typeof pair.new?.text !== "string" ||
+            pair.old.source?.name !== pair.new.source?.name || !pair.old.source?.name) return;
+        state.fallback = {
+          before: { rawOutput: pair.old.text, promptUsed: pair.old.prompt || "", status: "saved" },
+          after: { rawOutput: pair.new.text, promptUsed: pair.new.prompt || "", status: "saved" },
+          recording: { fileName: pair.old.source.name }
+        };
+      })
+      .catch(() => {})
+      .finally(renderLatest);
+  }
+  function fallbackFor(ctx, run) {
+    if (!state.fallback) return null;
+    const name = run ? recordingName(ctx, run) : currentSample(ctx)?.audio_filename;
+    return name === state.fallback.recording.fileName ? state.fallback : null;
+  }
+  function fallbackMarkup(ctx, comparison, showNote = true) {
+    const changes = transcriptChanges(comparison);
+    const beforeScore = comparison.before?.performance?.accessibilityScore;
+    const afterScore = comparison.after?.performance?.accessibilityScore;
+    const scoreChange = comparison.showResultScores && Number.isFinite(beforeScore) && Number.isFinite(afterScore)
+      ? `<div class="compare-count added"><strong>${esc(ctx, metricDeltaText(afterScore - beforeScore))}</strong><span>Accessibility score</span></div>` : "";
+    return `<div class="compare-live-results">${showNote ? '<p class="compare-fallback-note" role="status">Showing earlier results for this recording.</p>' : ""}
+      <div class="compare-header-row"><div class="compare-counts" aria-label="Transcript changes">
+        <div class="compare-count removed"><strong>${esc(ctx, changes?.removedWords ?? "—")}</strong><span>Words removed</span></div>
+        <div class="compare-count added"><strong>${esc(ctx, changes?.addedWords ?? "—")}</strong><span>Words added</span></div>
+        ${scoreChange}
+      </div><label class="compare-highlight"><input type="checkbox" id="highlight-changes"${state.highlights ? " checked" : ""}> Highlight changes</label></div>
+      <div class="compare-columns">${transcriptPanel(ctx, comparison, "before")}${transcriptPanel(ctx, comparison, "after")}</div></div>`;
   }
   function newestFirst(a, b) {
     return String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
@@ -149,11 +196,11 @@
   function renderDemo(ctx) {
     if (!ctx || location.hash !== "#/comparison") return;
     if (state.demoLoading) {
-      ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Before &amp; after</div><h1>Before &amp; after</h1></div></div><section class="compare-empty" aria-busy="true"><p>Loading comparison…</p></section>`;
+      ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Results Summary</div><h1>Results Summary</h1></div></div><section class="compare-empty" aria-busy="true"><p>Loading comparison…</p></section>`;
       return;
     }
     if (!state.demo) {
-      ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Before &amp; after</div><h1>Before &amp; after</h1></div></div><section class="compare-empty"><p class="error-box" role="alert">We couldn’t load the comparison. Please try again.</p><button type="button" class="button" id="retry-demo-comparison">Try again</button><details><summary>Developer details</summary><p>${fallbackEscape(safeDebugText(state.demoError))}</p></details></section>`;
+      ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Results Summary</div><h1>Results Summary</h1></div></div><section class="compare-empty"><p class="error-box" role="alert">We couldn’t load the comparison. Please try again.</p><button type="button" class="button" id="retry-demo-comparison">Try again</button><details><summary>Developer details</summary><p>${fallbackEscape(safeDebugText(state.demoError))}</p></details></section>`;
       document.getElementById("retry-demo-comparison")?.addEventListener("click", fetchDemo);
       return;
     }
@@ -163,7 +210,7 @@
       <div class="compare-prompt"><p class="compare-prompt-label">${side === "old" ? "Baseline prompt" : "Current system prompt"}</p><p class="compare-prompt-text">${fallbackEscape(prompt)}</p></div>
       <div class="compare-transcript${state.highlights ? "" : " no-highlights"}">${demoTranscript(side === "old" ? "before" : "after")}</div>
     </section>`;
-    ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Before &amp; after</div><h1>Before &amp; after</h1></div></div>
+    ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Results Summary</div><h1>Results Summary</h1></div></div>
       <section class="compare-banner"><div><strong>Developer example only</strong><p>Fixed comparison content is visible only in developer mode.</p></div></section>
       <div class="compare-header-row"><div class="compare-counts"><div class="compare-count removed"><strong>${fallbackEscape(data.counts.removedWords)}</strong><span>Removed words</span></div><div class="compare-count added"><strong>${fallbackEscape(data.counts.addedWords)}</strong><span>Added words</span></div></div><label class="compare-highlight"><input type="checkbox" id="highlight-changes"${state.highlights ? " checked" : ""}> Highlight changes</label></div>
       <div class="compare-columns">${panel("old", "Old transcript", data.baselinePrompt)}${panel("new", "New transcript", ctx.experiment.prompt || "")}</div>
@@ -173,7 +220,7 @@
 
   function friendlyStatus(job) {
     if (job?.outputPartial || job?.status === "partial") return "Partial result";
-    const labels = { queued: "Queued", preparing: "Queued", connecting: "Running", streaming: "Running", sending: "Running", waiting: "Running", running: "Running", finished: "Complete", complete: "Complete", partial: "Partial result", failed: "Failed", cancelled: "Stopped", stopped: "Stopped" };
+    const labels = { saved: "Saved result", queued: "Queued", preparing: "Queued", connecting: "Running", streaming: "Running", sending: "Running", waiting: "Running", running: "Running", finished: "Complete", complete: "Complete", partial: "Partial result", failed: "Failed", cancelled: "Stopped", stopped: "Stopped" };
     return labels[job?.status] || "Queued";
   }
   function transcriptText(record, side) {
@@ -182,7 +229,26 @@
     const run = side === "before" ? record?.before : record?.after;
     return typeof run?.rawOutput === "string" ? run.rawOutput : "";
   }
+  function transcriptChanges(comparison) {
+    if (transcriptDiffs.has(comparison)) return transcriptDiffs.get(comparison);
+    const before = transcriptText(comparison, "before");
+    const after = transcriptText(comparison, "after");
+    // Large transcripts use the server alignment to keep the interface responsive.
+    if (window.TranscriptDiff && before.length * after.length <= 80000000) {
+      const changes = window.TranscriptDiff.compare(before, after);
+      transcriptDiffs.set(comparison, changes);
+      return changes;
+    }
+    return null;
+  }
   function transcriptSegments(ctx, comparison, side) {
+    const changes = transcriptChanges(comparison);
+    if (changes) {
+      const kind = side === "before" ? "removed" : "added";
+      return changes[side === "before" ? "old" : "new"].map(part =>
+        `<span${part.changed ? ` class="${kind}"` : ""}>${esc(ctx, part.text)}</span>`
+      ).join("");
+    }
     const text = transcriptText(comparison, side);
     const segments = comparison?.transcriptDiff?.segments;
     if (!Array.isArray(segments)) return fallbackEscape(text);
@@ -205,7 +271,7 @@
     const deltas = comparison.deltas || {};
     const column = (title, performance) => `<article class="comparison-performance-side">
       <h3>${esc(ctx, title)}</h3>
-      <div><span>Accessibility score</span><strong>${esc(metricText(performance.accessibilityScore))}${typeof performance.accessibilityScore === "number" ? "<small>/ 100</small>" : ""}</strong></div>
+      <div><span>Accessibility score</span><strong>${esc(ctx, metricText(performance.accessibilityScore))}${typeof performance.accessibilityScore === "number" ? "<small>/ 100</small>" : ""}</strong></div>
       <div><span>Key items captured</span><strong>${Number.isInteger(performance.keyItemsCaptured) && Number.isInteger(performance.keyItemsTotal) ? `${esc(ctx, performance.keyItemsCaptured)} of ${esc(ctx, performance.keyItemsTotal)}` : "Not enough information to score this yet"}</strong></div>
       <div><span>Word accuracy</span><strong>${esc(ctx, metricText(performance.wordAccuracy, "%"))}</strong></div>
       <p>${esc(ctx, typeof performance.outcome === "string" && performance.outcome.trim() ? performance.outcome : "Not enough information to score this yet")}</p>
@@ -242,10 +308,16 @@
     const transcript = transcriptText(comparison, side);
     const prompt = typeof run?.promptUsed === "string" ? run.promptUsed : "";
     const title = before ? "Before" : "After";
+    const performance = run?.performance || {};
+    const resultScore = comparison.showResultScores ? `<div class="compare-result-score">
+      <span class="section-label">Accessibility score</span><strong>${esc(ctx, metricText(performance.accessibilityScore))}${typeof performance.accessibilityScore === "number" && Number.isFinite(performance.accessibilityScore) ? "<small>/ 100</small>" : ""}</strong>
+      <div class="compare-result-metrics"><div><span>Key items captured</span><b>${Number.isInteger(performance.keyItemsCaptured) && Number.isInteger(performance.keyItemsTotal) ? `${esc(ctx, performance.keyItemsCaptured)} of ${esc(ctx, performance.keyItemsTotal)}` : "—"}</b></div><div><span>Word accuracy</span><b>${typeof performance.wordAccuracy === "number" && Number.isFinite(performance.wordAccuracy) ? esc(ctx, metricText(performance.wordAccuracy, "%")) : "—"}</b></div></div>
+    </div>` : "";
     return `<section class="compare-panel ${before ? "old" : "new"}">
-      <div class="compare-panel-head"><h2>${title}</h2><span class="sim-state ${esc(ctx, String(run?.status || "").toLowerCase())}">${esc(ctx, friendlyStatus(run))}</span></div>
-      <div class="compare-prompt"><p class="compare-prompt-label">System prompt used</p><p class="compare-prompt-text">${esc(ctx, prompt)}</p></div>
-      <div class="compare-transcript${state.highlights ? "" : " no-highlights"}" aria-label="${title} transcript">${transcriptSegments(ctx, comparison, side)}</div>
+      <div class="compare-panel-head"><div><p class="compare-response-label">${before ? "Original response" : "Updated response"}</p><h2>${title}</h2></div><span class="sim-state ${esc(ctx, String(run?.status || "").toLowerCase())}">${esc(ctx, friendlyStatus(run))}</span></div>
+      ${resultScore}
+      <details class="compare-prompt"><summary class="compare-prompt-label">System prompt used</summary><p class="compare-prompt-text">${esc(ctx, prompt)}</p></details>
+      <div class="compare-transcript${state.highlights ? "" : " no-highlights"}" tabindex="0" aria-label="${title} transcript">${transcriptSegments(ctx, comparison, side)}</div>
       <div class="compare-actions"><button type="button" class="button secondary" data-copy-transcript="${side}">Copy response</button><button type="button" class="button secondary" data-download-transcript="${side}">Download TXT</button></div>
       <p class="compare-feedback" id="compare-copy-feedback-${side}" aria-live="polite"></p>
     </section>`;
@@ -280,7 +352,7 @@
       ? "Reference material was saved with this run and was not supplied to the model."
       : "";
     return `<details class="score-disclosure comparison-run-details"><summary>Run details</summary>
-      <p><strong>Recording:</strong> ${esc(ctx, after.recording?.fileName || after.recording?.label || "Selected recording")}</p>
+      <p><strong>Recording:</strong> ${esc(ctx, recordingName(ctx, after))}</p>
       <p><strong>Use case:</strong> ${esc(ctx, after.useCase?.label || "Saved use case")}</p>
       <p><strong>Run status:</strong> ${esc(ctx, friendlyStatus(after))}</p>
       <p><strong>Reference material:</strong> ${esc(ctx, referenceStatus || "Not recorded")}</p>
@@ -290,10 +362,11 @@
       ${debugMode() ? `<pre class="output-block">${esc(ctx, safeDebugText(JSON.stringify({ before, after, child }, null, 2)))}</pre>` : ""}
     </details>`;
   }
-  function bindLive(ctx, comparison, parent, before) {
+  function bindLive(ctx, comparison, parent, before, renderAgain) {
     document.getElementById("highlight-changes")?.addEventListener("change", event => {
       state.highlights = event.currentTarget.checked;
-      renderLive(latestContext || ctx);
+      if (renderAgain) renderAgain();
+      else renderLive(latestContext || ctx);
     });
     document.getElementById("retry-live-comparison")?.addEventListener("click", () => {
       ensureLiveComparison(before, parent, null, true);
@@ -324,7 +397,7 @@
       const url = URL.createObjectURL(new Blob([content], { type: "text/plain;charset=utf-8" }));
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `${side}-response.txt`;
+      anchor.download = `${recordingName(ctx, parent).replace(/\.[^.]+$/, "")}-${side}-response.txt`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
@@ -363,6 +436,16 @@
     const { parent, before, child } = findSandbox(ctx);
     const currentSampleValue = currentSample(ctx);
     if (!parent || !before) {
+      const failedRun = runs().filter(job => ["baseline", "candidate"].includes(job.kind) && job.status === "failed" &&
+        String(job.sampleId) === String(ctx.experiment.selectedId)).sort(newestFirst)[0];
+      if (failedRun || runsState.error) ensureFallback();
+      const fallback = (failedRun || runsState.error) ? fallbackFor(ctx, failedRun) : null;
+      if (fallback && !simulation?.isSandboxStarting?.() && !runsState.loading) {
+        ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Results Summary</div><h1>Results Summary</h1></div><div class="step-count">STEP 04 / 04</div></div>
+          <section class="compare-test-meta"><div><h2>${esc(ctx, fallback.recording.fileName)}</h2></div></section>${fallbackMarkup(ctx, fallback)}`;
+        bindLive(ctx, fallback, failedRun || { sampleId: ctx.experiment.selectedId, recording: fallback.recording }, null);
+        return;
+      }
       const statusMarkup = simulation?.isSandboxStarting?.()
         ? `<section class="compare-active-test" role="status"><span class="live-dot"></span><strong>Starting your test…</strong></section>`
         : runsState.loading
@@ -370,20 +453,23 @@
         : runsState.error
           ? `<section class="compare-empty"><p class="error-box" role="alert">We couldn’t load your runs. Please try again.</p><button type="button" class="button" id="retry-runs">Try again</button></section>`
           : `<section class="compare-empty"><p>Compare transcripts before and after a prompt change. Run a baseline and a revised prompt to see the differences here.</p><div class="placeholder-actions"><a class="button" href="#/scorecard">Go to review</a><a class="button secondary" href="#/simulation">Go to Simulation</a></div></section>`;
-      ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Before &amp; after</div><h1>Before &amp; after</h1><p class="page-intro">See how a prompt change affected the same recording.</p></div><div class="step-count">STEP 04 / 04</div></div>${statusMarkup}`;
+      ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Results Summary</div><h1>Results Summary</h1><p class="page-intro">See how a prompt change affected the same recording.</p></div><div class="step-count">STEP 04 / 04</div></div>${statusMarkup}`;
       document.getElementById("retry-runs")?.addEventListener("click", () => simulation?.refreshRuns?.());
       return;
     }
     const key = pairKey(before, parent);
     ensureLiveComparison(before, parent, child);
     const comparison = state.livePairs.get(key);
+    const changes = comparison ? transcriptChanges(comparison) : null;
     const loadError = state.liveErrors.get(key);
     const loading = state.liveLoading.has(key);
     const active = activeStatus(ctx, parent, child);
     const selectedPrompt = typeof comparison?.after?.promptUsed === "string";
     const terminalProblem = ["failed", "cancelled", "stopped"].includes(parent.status);
     const stageReady = comparison?.ready === true || parent.sandbox?.stage === "complete";
-    const content = !comparison
+    if (parent.status === "failed" && !comparison?.ready) ensureFallback();
+    const fallback = parent.status === "failed" && !comparison?.ready ? fallbackFor(ctx, parent) : null;
+    const content = fallback ? fallbackMarkup(ctx, fallback) : !comparison
       ? terminalProblem
         ? `<section class="compare-empty"><p>This test didn’t finish. You can review the saved details or start another test.</p><div class="placeholder-actions"><a class="button" href="#/scorecard">Go to review</a><a class="button secondary" href="#/simulation">Go to Simulation</a></div></section>`
         : loadError
@@ -400,8 +486,8 @@
               ${comparisonThemes(ctx, comparison)}
               ${promptDiffColumns(ctx, comparison)}
               <div class="compare-header-row"><div class="compare-counts" aria-label="Transcript changes">
-                <div class="compare-count removed"><strong>${esc(ctx, comparison.transcriptDiff?.counts?.removedWords ?? "—")}</strong><span>Removed words</span></div>
-                <div class="compare-count added"><strong>${esc(ctx, comparison.transcriptDiff?.counts?.addedWords ?? "—")}</strong><span>Added words</span></div>
+                <div class="compare-count removed"><strong>${esc(ctx, changes?.removedWords ?? comparison.transcriptDiff?.counts?.removedWords ?? "—")}</strong><span>Words removed</span></div>
+                <div class="compare-count added"><strong>${esc(ctx, changes?.addedWords ?? comparison.transcriptDiff?.counts?.addedWords ?? "—")}</strong><span>Words added</span></div>
               </div><label class="compare-highlight"><input type="checkbox" id="highlight-changes"${state.highlights ? " checked" : ""}> Highlight changes</label></div>
               <div class="compare-columns">${transcriptPanel(ctx, comparison, "before")}${transcriptPanel(ctx, comparison, "after")}</div>
               ${selectedPrompt ? `<button type="button" class="button apply-sandbox-button" id="apply-sandbox-prompt">Apply these changes to your agent</button>` : ""}
@@ -411,13 +497,14 @@
     const stageText = parent.sandbox?.stage === "reviewing"
       ? "Your recording is complete. Reviewing the response…"
       : parent.sandbox?.stage === "complete" ? "Your test is complete." : "Your test is in progress.";
-    ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Before &amp; after</div><h1>Before &amp; after</h1><p class="page-intro">See how a prompt change affected the same recording.</p></div><div class="step-count">STEP 04 / 04</div></div>
-      <section class="compare-test-meta"><div><p class="section-label">Selected recording</p><h2>${esc(ctx, parent.recording?.fileName || parent.recording?.label || "Selected recording")}</h2><p>${esc(ctx, parent.useCase?.label || "Saved use case")}</p>${currentSampleValue && String(parent.sampleId) !== String(currentSampleValue.id) ? `<p class="compare-history-note">Showing a saved comparison from another use case. Your current setup is unchanged.</p>` : ""}</div><span class="sim-state ${esc(ctx, String(parent.status || "").toLowerCase())}">${esc(ctx, friendlyStatus(parent))}</span></section>
+    ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Results Summary</div><h1>Results Summary</h1><p class="page-intro">See how a prompt change affected the same recording.</p></div><div class="step-count">STEP 04 / 04</div></div>
+      <section class="compare-test-meta"><div><h2>${esc(ctx, recordingName(ctx, parent))}</h2><p>${esc(ctx, parent.useCase?.label || "Saved use case")}</p>${currentSampleValue && String(parent.sampleId) !== String(currentSampleValue.id) ? `<p class="compare-history-note">Showing a saved comparison from another use case. Your current setup is unchanged.</p>` : ""}</div><span class="sim-state ${esc(ctx, String(parent.status || "").toLowerCase())}">${esc(ctx, friendlyStatus(parent))}</span></section>
       ${active}
       ${!active && parent.sandbox?.reviewError ? `<p class="review-note">${esc(ctx, "The audio test is saved, but the additional review could not be completed.")}</p>` : ""}
       ${!active ? `<p class="compare-stage-note">${esc(ctx, stageText)}</p>` : ""}
       ${content}`;
-    if (comparison && comparison.comparable !== false) bindLive(ctx, comparison, parent, before);
+    if (fallback) bindLive(ctx, fallback, parent, before);
+    else if (comparison && comparison.comparable !== false) bindLive(ctx, comparison, parent, before);
     else {
       document.getElementById("retry-live-comparison")?.addEventListener("click", () => ensureLiveComparison(before, parent, child, true));
       document.getElementById("stop-sandbox-run")?.addEventListener("click", () => simulation?.stopJob?.(parent.id));
@@ -437,5 +524,22 @@
     }
     renderLive(ctx);
   }
-  window.CadenceComparison = { render };
+  function renderSaved(ctx, pair, filename = pair.old.source.name) {
+    const comparison = {
+      before: { rawOutput: pair.old.text, promptUsed: pair.old.prompt, status: "saved", performance: pair.old.performance || pair.old.demoPerformance },
+      after: { rawOutput: pair.new.text, promptUsed: pair.new.prompt, status: "saved", performance: pair.new.performance || pair.new.demoPerformance },
+      showResultScores: true
+    };
+    ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Results Summary</div><h1>Results Summary</h1></div><div class="step-count">STEP 04 / 04</div></div>
+      <section class="compare-test-meta"><div><h2>${esc(ctx, filename)}</h2></div><span class="sim-state finished">Demo results</span></section>
+      ${fallbackMarkup(ctx, comparison, false)}
+      <div class="demo-actions"><button type="button" class="button" id="copy-demo-prompt">Copy improved prompt</button><p class="copy-feedback" id="demo-copy-feedback" aria-live="polite"></p></div>`;
+    bindLive(ctx, comparison, { recording: { fileName: filename } }, null, () => renderSaved(ctx, pair, filename));
+    document.getElementById("copy-demo-prompt")?.addEventListener("click", async () => {
+      const feedback = document.getElementById("demo-copy-feedback");
+      try { await navigator.clipboard.writeText(pair.new.prompt); feedback.textContent = "Prompt copied."; }
+      catch { feedback.textContent = "Couldn’t copy. Open System prompt used and copy the text."; }
+    });
+  }
+  window.CadenceComparison = { render, renderSaved };
 })();

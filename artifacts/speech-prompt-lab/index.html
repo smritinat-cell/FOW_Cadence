@@ -5,37 +5,45 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ff4338">
   <meta name="description" content="Review transcripts and improve speech agent prompts.">
-  <title>Cadence · Prompt review</title>
+  <title>Cadence</title>
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./comparison.css">
+  <link rel="stylesheet" href="./live-mode.css">
+  <link rel="stylesheet" href="./live-references.css">
 </head>
 <body>
   <div class="shell">
     <aside class="sidebar" aria-label="Workspace navigation">
       <div class="brand">
         <img class="brand-logo" src="./cadence-logo.png" alt="Cadence">
-        <div class="brand-sub">Speech prompt review</div>
       </div>
       <div class="nav-label">Workspace</div>
       <nav class="nav-list" aria-label="Evaluation screens">
         <a class="nav-link" data-route="/setup" href="#/setup"><span class="nav-number">01</span><span>Set up an eval</span></a>
         <a class="nav-link" data-route="/simulation" href="#/simulation"><span class="nav-number">02</span><span>Simulation</span></a>
         <a class="nav-link" data-route="/scorecard" href="#/scorecard"><span class="nav-number">03</span><span>Scorecard</span></a>
-        <a class="nav-link" data-route="/comparison" href="#/comparison"><span class="nav-number">04</span><span>Before &amp; after</span></a>
+        <a class="nav-link" data-route="/comparison" href="#/comparison"><span class="nav-number">04</span><span>Results Summary</span></a>
       </nav>
       <div class="sidebar-note">
         <div class="note-kicker">Designed for real speech</div>
-        <p>Shape agent prompts around the people who use them.</p>
+        <p>Make your voice agents accessible.</p>
       </div>
     </aside>
     <main class="main">
       <header class="topbar">
         <div class="breadcrumb"><span>Workspace</span><span aria-hidden="true">/</span><strong id="breadcrumb-title">Set up an eval</strong></div>
+        <span class="demo-mode-badge" id="demo-mode-badge" hidden>Demo</span>
       </header>
       <div class="content" id="app-content" aria-live="polite"></div>
     </main>
   </div>
+  <script src="./mode-control.js"></script>
+  <script src="./demo-flow.js"></script>
   <script src="./simulation.js"></script>
+  <script src="./transcript-diff.js"></script>
   <script src="./comparison.js"></script>
+  <script src="./live-flow.js"></script>
+  <script src="./live-references.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

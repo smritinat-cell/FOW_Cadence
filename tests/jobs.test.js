@@ -110,6 +110,28 @@ test("candidate streams original audio with exact editor prompt and matched base
     assert.equal(changed.error.code,"PAIR_MISMATCH");assert.equal(f.calls.length,2);
   }finally{f.cleanup();}
 });
+test("Scorecard Fix preset previews and tests the exact shipped prompt with mocked provider calls",async()=>{
+  const f=fixture();
+  try {
+    const { buildPromptProposal }=require("../lib/prompt-updates");
+    const preset=require("../config/transcript-improvement.json");
+    const saved=require("../artifacts/speech-prompt-lab/comparison-results.json");
+    const context={systemPrompt:"Transcribe the audio. Output only the transcript.",agentName:"Test",purpose:"Test purpose",speechProfileTags:["Child"]};
+    const base=await waitJob(f.jobs,f.jobs.start("baseline",{sampleId:"sample-01",context},"owner").id);
+    const before=await waitJob(f.jobs,f.jobs.start("candidate",{sampleId:"sample-01",context,model:base.requestedModel,pairedBaselineId:base.id},"owner").id);
+    const review=await waitJob(f.jobs,f.jobs.start("evaluation",{baselineId:base.id,context,model:base.requestedModel},"owner").id);
+    const proposal=buildPromptProposal(context.systemPrompt,[],review,base.rawOutput,"",preset.id);
+    assert.equal(proposal.suggestedPrompt,saved.new.prompt);
+    assert.equal(f.calls.length,3);
+    assert.throws(()=>f.jobs.start("candidate",{sandboxEvaluationId:review.id,beforeRunId:before.id,promptPreset:preset.id,currentPrompt:"changed"},"owner"),error=>error.code==="SNAPSHOT_REQUIRED");
+    const after=await waitJob(f.jobs,f.jobs.start("candidate",{sandboxEvaluationId:review.id,beforeRunId:before.id,promptPreset:proposal.promptPreset,currentPrompt:context.systemPrompt},"owner").id);
+    assert.equal(after.status,"finished");
+    assert.equal(f.calls[3].settings.systemPrompt,proposal.suggestedPrompt);
+    assert.equal(after.promptUsed,saved.new.prompt);
+    assert.equal(after.sandbox.promptPreset,preset.id);
+    assert.equal(context.systemPrompt,"Transcribe the audio. Output only the transcript.");
+  } finally { f.cleanup(); }
+});
 test("explicit sandbox keeps editor context untouched, saves after output and rechecks themes under one lock",async()=>{
   const f=fixture({sample:{reference_transcript:"raw um words",critical_items:["words"]}});
   try{
