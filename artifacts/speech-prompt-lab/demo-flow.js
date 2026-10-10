@@ -1,8 +1,8 @@
 (() => {
   "use strict";
-  const enabled = new URLSearchParams(location.search).get("demo") === "1";
+  const enabled = document.documentElement?.dataset.demo === "true" || new URLSearchParams(location.search).get("demo") === "1";
   if (enabled) document.getElementById("demo-mode-badge").hidden = false;
-  let pair = null, pending = null, fixed = false;
+  let pair = null, pending = null, fixed = false, running = false, runKind = "baseline";
   const escape = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   function load() {
     if (!pending) pending = fetch("./comparison-results.json").then(async response => {
@@ -19,19 +19,40 @@
     return `<section class="score-section"><div class="score-section-heading"><div><p class="section-label">Demo transcript</p><h2>${title}</h2></div><span class="sim-state finished">Complete</span></div><pre class="output-block demo-transcript">${escape(text)}</pre></section>`;
   }
   function preview(sample) {
-    if (!enabled || !pair || sample?.audio_filename !== pair.old.source.name) return "";
+    if (!enabled || !pair || !sample) return "";
     return `<details class="score-disclosure"><summary>Demo transcript</summary><pre class="output-block">${escape(pair.old.text)}</pre></details>`;
   }
   function draw(ctx, route) {
+    const selected = (ctx.samples || []).find(sample => String(sample.id) === String(ctx.experiment?.selectedId));
+    const selectedFilename = selected?.audio_filename || pair.old.source.name;
     if (route === "/comparison") {
-      window.CadenceComparison.renderSaved(ctx, pair);
+      window.CadenceComparison.renderSaved(ctx, pair, selectedFilename);
       return;
     }
-    const filename = escape(pair.old.source.name);
+    const filename = escape(selectedFilename);
     const meta = `<section class="compare-test-meta"><div><h2>${filename}</h2></div><span class="sim-state finished">Demo results</span></section>`;
     if (route === "/simulation") {
+      const model = /^demo-model-[1-4]$/.test(ctx.experiment?.model || "") ? ctx.experiment.model : "demo-model-1";
       ctx.content.innerHTML = `${heading("Simulation", "02", "Review the recording’s baseline result.")}${meta}
-        <div class="demo-stage-grid">${transcript("Baseline response", pair.old.text)}<section class="score-section"><p class="section-label">System prompt used</p><pre class="output-block">${escape(pair.old.prompt)}</pre><div class="demo-actions"><a class="button" href="#/scorecard">Continue to Scorecard</a></div></section></div>`;
+        <section class="panel sim-config-panel"><div class="panel-header"><div><p class="section-label">Run settings</p><h2 class="section-title">Choose a speech model</h2></div></div>
+          <div class="sim-model-actions"><div class="field sim-model-field"><label for="model-select">Model</label><select id="model-select">${[1, 2, 3, 4].map(index => `<option value="demo-model-${index}"${model === `demo-model-${index}` ? " selected" : ""}>Speech model ${index}</option>`).join("")}</select></div>
+          <div class="sim-run-buttons"><button type="button" class="button" id="demo-run-baseline"${running ? " disabled" : ""}>${running && runKind === "baseline" ? "Running…" : "Run baseline"}</button><button type="button" class="button secondary" id="demo-run-candidate"${running ? " disabled" : ""}>${running && runKind === "candidate" ? "Running…" : "Run with my prompt"}</button></div></div></section>
+        <div class="demo-stage-grid" id="demo-run-output">${transcript(runKind === "candidate" ? "Your prompt response" : "Baseline response", pair.old.text)}<section class="score-section"><p class="section-label">System prompt used</p><pre class="output-block">${escape(pair.old.prompt)}</pre><div class="demo-actions"><a class="button" href="#/scorecard">Continue to Scorecard</a></div></section></div>`;
+      document.getElementById("model-select").addEventListener("change", event => {
+        if (ctx.experiment) ctx.experiment.model = event.currentTarget.value;
+        ctx.saveExperiment?.();
+      });
+      for (const kind of ["baseline", "candidate"]) document.getElementById(`demo-run-${kind}`).addEventListener("click", () => {
+        runKind = kind;
+        running = true;
+        draw(ctx, route);
+        window.setTimeout(() => {
+          running = false;
+          if (location.hash !== "#/simulation") return;
+          draw(ctx, route);
+          document.getElementById("demo-run-output")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 600);
+      });
       return;
     }
     const changes = window.TranscriptDiff.compare(pair.old.text, pair.new.text);

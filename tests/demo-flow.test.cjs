@@ -8,17 +8,26 @@ const code = fs.readFileSync(require.resolve('../artifacts/speech-prompt-lab/dem
 const settle = async () => { for(let i=0;i<3;i++) await new Promise(resolve=>setImmediate(resolve)); };
 
 test('the demo stages share saved text and Fix reveals the completed output without API calls', async()=>{
-  const content={innerHTML:''}, requests=[], elements=new Map();
+  const content={innerHTML:''}, requests=[], elements=new Map(), timers=[];
   const sandbox={URLSearchParams,location:{search:'?demo=1',hash:'#/simulation'},document:{
-    getElementById(id){if(!elements.has(id))elements.set(id,{hidden:true,handlers:{},addEventListener(type,fn){this.handlers[type]=fn;}});return elements.get(id);},
+    getElementById(id){if(!elements.has(id))elements.set(id,{hidden:true,handlers:{},scrollIntoView(){},addEventListener(type,fn){this.handlers[type]=fn;}});return elements.get(id);},
     querySelector(){return {scrollIntoView(){}};}
   },async fetch(url){requests.push(url);assert.equal(url,'./comparison-results.json');return {ok:true,json:async()=>pair};}};
-  sandbox.window={TranscriptDiff:{compare},CadenceComparison:{renderSaved(_,data){assert.equal(data,pair);content.innerHTML='Comparison';}}};
+  sandbox.window={setTimeout(fn){timers.push(fn);},TranscriptDiff:{compare},CadenceComparison:{renderSaved(_,data,filename){assert.equal(data,pair);assert.equal(filename,'F_0101_10y4m_1.wav');content.innerHTML='Comparison';}}};
   vm.runInNewContext(code,sandbox);
-  const demo=sandbox.window.CadenceDemoFlow,ctx={content};
+  const demo=sandbox.window.CadenceDemoFlow,ctx={content,experiment:{selectedId:'sample-02'},samples:[{id:'sample-02',audio_filename:'F_0101_10y4m_1.wav'}]};
   demo.render(ctx,'/simulation');await settle();
   assert.match(content.innerHTML,/Baseline response/);
   assert.match(content.innerHTML,/Nin Ten, Nin Ten/);
+  assert.match(content.innerHTML,/F_0101_10y4m_1.wav/);
+  assert.equal((content.innerHTML.match(/>Speech model [1-4]<\/option>/g)||[]).length,4);
+  elements.get('model-select').handlers.change({currentTarget:{value:'demo-model-3'}});
+  assert.equal(ctx.experiment.model,'demo-model-3');
+  elements.get('demo-run-candidate').handlers.click();
+  assert.match(content.innerHTML,/Running…/);
+  timers.shift()();
+  assert.match(content.innerHTML,/Your prompt response/);
+  assert.match(content.innerHTML,/value="demo-model-3" selected/);
   sandbox.location.hash='#/scorecard';demo.render(ctx,'/scorecard');await settle();
   assert.doesNotMatch(content.innerHTML,/Completed demo result/);
   elements.get('demo-fix').handlers.click();

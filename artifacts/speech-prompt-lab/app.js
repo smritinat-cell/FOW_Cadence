@@ -15,6 +15,7 @@
   let samplesLoading = true;
   let route = "/setup";
   let activeAgentTab = "connect";
+  let agentConnection = "idle";
   let waveformRequest = 0;
   let saveTimer = null;
   let samplesLoaded = false;
@@ -43,6 +44,11 @@
 
   function subscribeSetupEvaluationLock() {
     if (unsubscribeEvaluationLock) unsubscribeEvaluationLock();
+    if (window.CadenceDemoFlow?.enabled) {
+      unsubscribeEvaluationLock = null;
+      applySetupEvaluationLock(false);
+      return;
+    }
     if (window.CadenceSimulation?.onEvaluationLockChange) {
       unsubscribeEvaluationLock = window.CadenceSimulation.onEvaluationLockChange(applySetupEvaluationLock);
     } else {
@@ -259,17 +265,13 @@
         <div class="tab-list" role="tablist" aria-label="Agent setup method">
           <button class="tab-button" id="tab-connect" role="tab" aria-selected="${activeAgentTab === "connect"}" tabindex="${activeAgentTab === "connect" ? 0 : -1}" aria-controls="panel-connect" type="button">Agent connection</button>
           <button class="tab-button" id="tab-prompt" role="tab" aria-selected="${activeAgentTab === "prompt"}" tabindex="${activeAgentTab === "prompt" ? 0 : -1}" aria-controls="panel-prompt" type="button">Paste system prompt</button>
-          <button class="tab-button" id="tab-upload" role="tab" aria-selected="${activeAgentTab === "upload"}" tabindex="${activeAgentTab === "upload" ? 0 : -1}" aria-controls="panel-upload" type="button">Call recording</button>
         </div>
         <div class="tab-panel" id="panel-connect" role="tabpanel" aria-labelledby="tab-connect"${activeAgentTab === "connect" ? "" : " hidden"}>
-          <div class="connect-row"><div class="field"><label for="agent-id">Agent ID</label><input id="agent-id" type="text" value="${escapeHtml(experiment.agentId)}" placeholder="Enter an agent ID"></div><button class="button secondary" id="connect-button" type="button" disabled>Agent connection isn’t available yet.</button></div>
+          <button class="button secondary" id="connect-button" type="button"${agentConnection === "connecting" ? " disabled" : ""}>${agentConnection === "connected" ? "Connected" : agentConnection === "connecting" ? "Connecting…" : "Connect your voice agent"}</button>
           <p class="inline-feedback" id="connect-feedback" aria-live="polite"></p>
         </div>
         <div class="tab-panel" id="panel-prompt" role="tabpanel" aria-labelledby="tab-prompt"${activeAgentTab === "prompt" ? "" : " hidden"}>
           <div class="field"><label for="prompt-input">System prompt</label><textarea id="prompt-input" placeholder="Paste the agent's system prompt…">${escapeHtml(experiment.prompt)}</textarea></div>
-        </div>
-        <div class="tab-panel" id="panel-upload" role="tabpanel" aria-labelledby="tab-upload"${activeAgentTab === "upload" ? "" : " hidden"}>
-          <div class="usecases"><span class="usecase-mark" aria-hidden="true">i</span><span>Choose from the recordings available below.</span></div>
         </div>
       </section>
     </section>
@@ -397,7 +399,7 @@
       else link.removeAttribute("aria-current");
     });
     if (window.CadenceDemoFlow?.enabled && route !== "/setup") {
-      window.CadenceDemoFlow.render({ content, experiment, samples, escapeHtml }, route);
+      window.CadenceDemoFlow.render({ content, experiment, samples, escapeHtml, saveExperiment }, route);
       return;
     }
     if (route !== "/setup" && unsubscribeEvaluationLock) {
@@ -498,7 +500,6 @@
     const purpose = document.getElementById("purpose-input");
     const prompt = document.getElementById("prompt-input");
     const reference = document.getElementById("reference-input");
-    const agentId = document.getElementById("agent-id");
     agentName.addEventListener("input", () => {
       experiment.agentName = agentName.value;
       if (!samplesLoaded) editedBeforeSamplesLoad.add("agentName");
@@ -524,7 +525,23 @@
       if (!samplesLoaded) editedBeforeSamplesLoad.add("reference");
       saveExperiment();
     });
-    agentId.addEventListener("input", () => { experiment.agentId = agentId.value; saveExperiment(); });
+    document.getElementById("connect-button").addEventListener("click", () => {
+      if (agentConnection !== "idle") return;
+      agentConnection = "connecting";
+      const button = document.getElementById("connect-button");
+      button.textContent = "Connecting…";
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+      window.setTimeout(() => {
+        agentConnection = "connected";
+        const current = document.getElementById("connect-button");
+        if (!current) return;
+        current.textContent = "Connected";
+        current.disabled = false;
+        current.removeAttribute("aria-busy");
+        document.getElementById("connect-feedback").textContent = "Your voice agent is connected.";
+      }, 700);
+    });
     document.getElementById("reset-sample-defaults")?.addEventListener("click", () => {
       const selected = getCurrentSample();
       if (!selected || !autoFieldsDiffer(sampleDefaults(selected))) return;

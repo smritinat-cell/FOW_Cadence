@@ -513,16 +513,16 @@
     }
     renderLive(ctx);
   }
-  function renderSaved(ctx, pair) {
+  function renderSaved(ctx, pair, filename = pair.old.source.name) {
     const comparison = {
       before: { rawOutput: pair.old.text, promptUsed: pair.old.prompt, status: "saved" },
       after: { rawOutput: pair.new.text, promptUsed: pair.new.prompt, status: "saved" }
     };
     ctx.content.innerHTML = `<div class="page-heading"><div><div class="eyebrow">04 / Before &amp; after</div><h1>Before &amp; after</h1></div><div class="step-count">STEP 04 / 04</div></div>
-      <section class="compare-test-meta"><div><h2>${esc(ctx, pair.old.source.name)}</h2></div><span class="sim-state finished">Demo results</span></section>
+      <section class="compare-test-meta"><div><h2>${esc(ctx, filename)}</h2></div><span class="sim-state finished">Demo results</span></section>
       ${fallbackMarkup(ctx, comparison, false)}
       <div class="demo-actions"><button type="button" class="button" id="copy-demo-prompt">Copy improved prompt</button><p class="copy-feedback" id="demo-copy-feedback" aria-live="polite"></p></div>`;
-    bindLive(ctx, comparison, { recording: { fileName: pair.old.source.name } }, null, () => renderSaved(ctx, pair));
+    bindLive(ctx, comparison, { recording: { fileName: filename } }, null, () => renderSaved(ctx, pair, filename));
     document.getElementById("copy-demo-prompt")?.addEventListener("click", async () => {
       const feedback = document.getElementById("demo-copy-feedback");
       try { await navigator.clipboard.writeText(pair.new.prompt); feedback.textContent = "Prompt copied."; }

@@ -4,21 +4,18 @@
   "use_case_label": "After-hours nurse line",
   "use_case_summary": "Gather symptom details from adolescent callers after hours and route them to emergency care, a same-night nurse callback, or a next-day appointment.",
   "agent_name": "Harbor Pediatrics After-Hours Nurse Line",
-  "speech_profile": "Adolescent · Male · Age 14y4m · Speech may be soft or hesitant · Background noise likely · Informal vocabulary and slang",
+  "speech_profile": "Child \u00b7 Age 10y0m",
   "speech_profile_tags": [
-    "Adolescent",
-    "Male",
-    "Age 14y4m",
-    "Speech may be soft or hesitant",
-    "Background noise likely",
-    "Informal vocabulary and slang"
+    "Child",
+    "Age 10y0m"
   ],
-  "duration_seconds": 128.871,
+  "duration_seconds": 133.746939,
   "agent_purpose": "An after-hours pediatric nurse-line voice agent that gathers symptom details from adolescent callers and routes the call to the right level of care: emergency, same-night nurse callback, or next-day appointment.",
   "system_prompt": "You are the Harbor Pediatrics After-Hours Nurse Line voice agent. You take calls from teenagers and families when the clinic is closed. Your job is to listen, gather the details a triage nurse needs, and route the call. Collect the caller's name, age, callback number, main concern, when it started, severity from one to ten, and any medications taken in the last 24 hours. Ask one question at a time and confirm numbers and medication names by repeating them back. You are not a clinician: do not diagnose, do not advise on dosing, and do not tell the caller that a symptom is nothing to worry about. Route to emergency services immediately for trouble breathing, chest pain, loss of consciousness, severe bleeding, suspected overdose or poisoning, seizures, or any mention of self-harm or suicide, and for self-harm concerns also share the 988 Suicide and Crisis Lifeline. Route to a same-night nurse callback for moderate symptoms that are worsening, and to a next-day appointment for mild, stable concerns. If the caller sounds scared, hesitant or is hard to hear, stay patient, reassure them they did the right thing by calling, and ask them to repeat what you missed.",
   "reference_transcript": "",
   "critical_items": [],
   "reference_material": "",
-  "prototype_audio_file": "M_0052_14y4m_1_1791609668095.wav",
-  "audio_size_bytes": 11366444
+  "prototype_audio_file": "F_0558_10y0m_1.wav",
+  "audio_size_bytes": 11796524,
+  "audio_filename": "F_0558_10y0m_1.wav"
 }
