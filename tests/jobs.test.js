@@ -175,7 +175,7 @@ test("evaluator seed fallback uses the same input on the same call with only con
     assert.ok(socket.binary.every(frame => frame.data.every(byte => byte === 0)));
     assert.equal(socket.readyState, 3);
     assert.equal(evaluation.computedScores.overall, 98);
-    assert.equal(evaluation.rubric_version, "1.0.0");
+    assert.equal(evaluation.rubric_version, "1.1.0");
     assert.ok(evaluation.suggestedPrompt.startsWith(context.systemPrompt));
     assert.equal(evaluation.diff.filter(line => line.type !== "removed").map(line => line.text).join(""), evaluation.suggestedPrompt);
   } finally { f.cleanup(); }

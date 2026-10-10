@@ -42,3 +42,17 @@ mtime_ms = 1791620765992
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:359f5169-6ae0-4ac5-9dc2-8a6eeccf7d68/7fcf78e7-20c5-4962-8806-3878ba7330e6/71d48b04-1b9c-4a0d-950b-9a0e756f2db4"
 storage_version_token = "1791620818921613"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "yNQTQ89w4N8rAH4aTyufm"
+uri = "file://generated-artifacts/accessibility-feedback-scorecard.jpg"
+type = "image"
+title = "Updated accessibility feedback — illustrative preview"
+description = "Shows the stuttering-focused findings, paired quotes, missed key detail, targeted instruction and prompt comparison. Uses labelled sample text and a synthetic reference, not results from your recordings. No paid calls or saved evaluations were created."
+logical_id = "ddaac095-cafb-43b8-896f-82dc6ee158b4"
+content_hash = "sha256:aa7d78eb4b5c174e628b0c3c6e7be502386cd0ddffbb060dc534f26247e1e972"
+size = 371806
+mtime_ms = 1791661192537
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:359f5169-6ae0-4ac5-9dc2-8a6eeccf7d68/ddaac095-cafb-43b8-896f-82dc6ee158b4/2706fbe8-ac76-4169-ad6c-4a092f08dceb"
+storage_version_token = "1791661241421746"
+content_type = "image/jpeg"

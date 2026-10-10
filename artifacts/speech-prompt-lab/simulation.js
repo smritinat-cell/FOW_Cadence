@@ -366,7 +366,7 @@
   function runRange(job) {
     const start = job?.startOffset ?? job?.excerpt?.startOffset ?? job?.excerpt?.startSeconds ??
       job?.settings?.startOffset ?? job?.inputSnapshot?.startOffset;
-    const length = job?.excerptLength ?? job?.excerpt?.durationSeconds ?? job?.excerpt?.lengthSeconds ??
+    const length = job?.excerptLength ?? job?.excerpt?.excerptLength ?? job?.excerpt?.length ?? job?.excerpt?.durationSeconds ?? job?.excerpt?.lengthSeconds ??
       job?.settings?.excerptLength ?? job?.inputSnapshot?.excerptLength;
     return Number.isFinite(Number(start)) && Number.isFinite(Number(length))
       ? { startOffset: Number(start), excerptLength: Number(length) }
@@ -472,6 +472,68 @@
     const compact = output.replace(/\s+/g, " ").trim();
     return `${compact.slice(0, 110)}${compact.length > 110 ? "…" : ""}`;
   }
+  function speechPatternBaseline(job) {
+    const cleaned = job?.cleaned === true || job?.isCleaned === true || job?.outputCleaned === true ||
+      job?.outputWasCleaned === true || job?.transcriptCleaned === true || job?.cleaningApplied === true || job?.cleaning?.applied === true ||
+      job?.inputSnapshot?.transcriptCleanup === true || job?.settings?.transcriptCleanup === true;
+    if (job?.kind !== "candidate" || !cleaned) return null;
+    const paired = state.jobs.find(item => item.kind === "baseline" && String(item.id) === String(job.pairedBaselineId));
+    if (speechPatternEntries(paired).length || paired?.speechPatterns != null) return paired;
+    const candidateRange = runRange(job);
+    return state.jobs.filter(item => item.kind === "baseline" && String(item.sampleId) === String(job.sampleId) &&
+      (speechPatternEntries(item).length || item.speechPatterns != null) && candidateRange &&
+      numbersMatch(runRange(item)?.startOffset, candidateRange.startOffset) &&
+      numbersMatch(runRange(item)?.excerptLength, candidateRange.excerptLength)).sort(byCreated)[0] || null;
+  }
+  function speechPatternEntries(job) {
+    const value = job?.speechPatterns;
+    if (Array.isArray(value)) return value;
+    return Array.isArray(value?.patterns) ? value.patterns : [];
+  }
+  function speechPatternsMarkup(job) {
+    if (!job || !["finished", "complete", "partial"].includes(job.status)) return "";
+    const baseline = speechPatternBaseline(job);
+    const source = baseline || job;
+    const patternPayload = source.speechPatterns;
+    const patterns = speechPatternEntries(source);
+    const jobUnderstanding = job.understanding || {};
+    const sourceUnderstanding = source.understanding || {};
+    const understandingRecord = jobUnderstanding && typeof jobUnderstanding === "object" ? jobUnderstanding : sourceUnderstanding;
+    const understanding = (typeof jobUnderstanding === "string" ? jobUnderstanding : jobUnderstanding.text) ||
+      (typeof sourceUnderstanding === "string" ? sourceUnderstanding : sourceUnderstanding.text) || "";
+    const missingItems = Array.isArray(understandingRecord.missingItems) ? understandingRecord.missingItems :
+      Array.isArray(sourceUnderstanding.missingItems) ? sourceUnderstanding.missingItems : [];
+    const partialBasis = [patternPayload?.basis, ...patterns.map(pattern => pattern?.basis)]
+      .some(basis => typeof basis === "string" && /partial/i.test(basis));
+    const partial = job.status === "partial" || job.outputPartial === true || partialBasis;
+    const countLabels = [
+      ["wordRepetitions", "Word repetitions"],
+      ["fillers", "Fillers"],
+      ["restartedSentences", "Restarted sentences"],
+      ["soundRepetitions", "Sound repetitions"]
+    ];
+    const cards = patterns.map(pattern => {
+      const counts = pattern?.counts && typeof pattern.counts === "object" ? pattern.counts : {};
+      const evidence = typeof pattern.evidence === "string" ? pattern.evidence :
+        Array.isArray(pattern.evidence) ? pattern.evidence.map(item => typeof item === "string" ? item : item?.quote || item?.text || "").filter(Boolean).join("\n") :
+          pattern.evidence && typeof pattern.evidence === "object" ? pattern.evidence.quote || pattern.evidence.text || "" : "";
+      const available = countLabels.filter(([key]) => typeof counts[key] === "number" && Number.isFinite(counts[key]) && counts[key] > 0);
+      return `<article class="speech-pattern-item">
+        <strong>${esc(pattern.label || "Speech pattern")}</strong>
+        ${pattern.summary ? `<p>${esc(pattern.summary)}</p>` : ""}
+        ${available.length ? `<ul>${available.map(([key, label]) => `<li><span>${esc(label)}</span><strong>${esc(counts[key])}</strong></li>`).join("")}</ul>` : ""}
+        ${evidence ? `<blockquote>${esc(evidence)}</blockquote>` : ""}
+      </article>`;
+    }).join("");
+    return `<section class="speech-pattern-summary">
+      <div class="speech-pattern-heading"><p class="section-label">Speech patterns in this recording</p>${partial ? `<span class="speech-partial-tag">Partial observations</span>` : ""}</div>
+      ${understanding ? `<p class="speech-understanding">${esc(understanding)}</p>` : ""}
+      ${missingItems.length ? `<div class="speech-missing-items"><strong>Missing key details</strong><ul>${missingItems.map(item => `<li>${esc(typeof item === "string" ? item : item?.label || item?.text || item?.id || "")}</li>`).join("")}</ul></div>` : ""}
+      ${cards ? `<div class="speech-pattern-list">${cards}</div>` : ""}
+      ${!patterns.length ? `<p class="speech-pattern-empty">${partial ? "This partial result contains no additional pattern observations." : patternPayload != null ? "No pattern observations were included in this result. Run the recording again to check available details." : "Pattern details weren’t saved for this run. Run the recording again to check available details."}</p>` : ""}
+      ${baseline && baseline !== job ? `<p class="speech-pattern-source">Patterns shown from the baseline recording.</p>` : ""}
+    </section>`;
+  }
   function simulationCell(job, kind) {
     if (!job) return `<div class="sim-result-empty"><strong>${kind === "candidate" ? "Your prompt" : "Baseline"}</strong><span>No run yet</span></div>`;
     const status = simulationStatusText(job.status);
@@ -514,6 +576,7 @@
       ${error}
       ${activeStatuses.has(job.status) ? simulationProgressMarkup(job) : ""}
       ${output ? `<div><p class="section-label">${esc(runOutputLabel(job))}</p><pre class="output-block sim-generated-output">${esc(output)}</pre></div>` : `<p class="sim-output-pending">${activeStatuses.has(job.status) ? "Waiting for output…" : "No output returned."}</p>`}
+      ${speechPatternsMarkup(job)}
       ${prompt != null ? `<details class="sim-prompt-used" data-sim-disclosure="prompt"><summary>Exact prompt used</summary><pre class="output-block">${esc(prompt)}</pre></details>` : ""}
       ${referenceStatus || reference ? `<details class="sim-prompt-used" data-sim-disclosure="reference"><summary>Reference material</summary>${referenceStatus ? `<p>${esc(referenceStatus)}</p>` : ""}${reference ? `<pre class="output-block">${esc(reference)}</pre>` : `<p>No reference material was saved for this run.</p>`}</details>` : ""}
       <details class="sim-prompt-used" data-sim-disclosure="details"><summary>Run details</summary>
@@ -822,16 +885,70 @@
     }).join("")}</div>`;
   }
   function severityRank(severity) { return ({ critical: 0, high: 1, medium: 2, low: 3 })[severity] ?? 4; }
-  function findingMarkup(finding) {
+  function speechLabel(value, fallback = "Speech patterns") {
+    const clean = String(value || "").replace(/^\s*(?:pattern\s*:\s*)+/i, "").trim();
+    if (!clean || /^(?:uncategorized|untitled|related area|prompt guidance)$/i.test(clean)) return fallback;
+    return clean.charAt(0).toLocaleUpperCase() + clean.slice(1);
+  }
+  function findingTitle(value, groupLabel) {
+    const title = String(value || "").replace(/^\s*(?:pattern\s*:\s*)+/i, "").trim();
+    if (!title) return "";
+    const group = String(groupLabel || "").trim();
+    return group && title.toLocaleLowerCase().startsWith(`${group.toLocaleLowerCase()}:`)
+      ? title.slice(group.length + 1).trim() : title.toLocaleLowerCase() === group.toLocaleLowerCase() ? "" : title;
+  }
+  function confidenceLabel(value) {
+    const level = String(value ?? "").trim().replace(/%$/, "").toLowerCase();
+    if (["high", "medium", "low"].includes(level)) return `${level.charAt(0).toUpperCase()}${level.slice(1)} confidence`;
+    if (value == null || value === "") return "";
+    return `Confidence ${String(value)}${Number(value) <= 1 ? "" : "%"}`;
+  }
+  function findingMarkup(finding, groupLabel = "") {
     const quiet = finding.severity === "medium" || finding.severity === "low";
-    const coverage = statusLabel(finding.prompt_coverage);
+    const coverageValue = String(finding.prompt_coverage || "").toLowerCase();
+    const coverageKind = ({
+      partial: "partial",
+      partly_covered: "partial",
+      full: "full",
+      covered: "full"
+    })[coverageValue] || "";
+    const coverage = ({
+      none: "Your current prompt does not cover this speech pattern",
+      not_covered: "Your current prompt does not cover this speech pattern",
+      partial: "Your current prompt partly addresses this speech pattern",
+      partly_covered: "Your current prompt partly addresses this speech pattern",
+      full: "Your current prompt addresses this speech pattern",
+      covered: "Your current prompt addresses this speech pattern"
+    })[coverageValue] || "";
+    const referenceQuote = typeof finding.referenceQuote === "string" ? finding.referenceQuote.trim() : "";
+    const verifiedReference = finding.referenceVerified === true && referenceQuote;
+    const title = findingTitle(finding.title, groupLabel);
+    const missed = Array.isArray(finding.missedItems) ? finding.missedItems.filter(item => item && (item.label || item.id)) : [];
+    const confidence = confidenceLabel(finding.confidence);
     return `<article class="finding-card${quiet ? " quieter" : ""}">
-      <div class="finding-heading"><span class="severity ${esc(finding.severity || "medium")}">${esc(finding.severity || "medium")}</span><span class="finding-theme">${esc(finding.parameterLabel || finding.themeLabel || "Related area")}</span>${finding.confidence != null ? `<span class="finding-confidence">Confidence ${esc(finding.confidence)}${Number(finding.confidence) <= 1 ? "" : "%"}</span>` : ""}</div>
-      <h3>${esc(finding.title || "Finding")}</h3>
-      ${finding.quote ? `<blockquote>${esc(finding.quote)}</blockquote>` : `<p class="field-help">No transcript quote was supplied.</p>`}
-      ${finding.why_it_matters ? `<p>${esc(finding.why_it_matters)}</p>` : ""}
-      <div class="finding-coverage"><span>Prompt coverage · ${esc(coverage)}</span>${finding.coverage_quote ? `<blockquote><span class="detail-caption">Prompt wording</span>${esc(finding.coverage_quote)}</blockquote>` : ""}</div>
+      <div class="finding-heading"><span class="severity ${esc(finding.severity || "medium")}">${esc(finding.severity || "medium")}</span>${confidence ? `<span class="finding-confidence">${esc(confidence)}</span>` : ""}</div>
+      ${title ? `<h3>${esc(title)}</h3>` : ""}
+      ${verifiedReference
+        ? `<div class="finding-quote-pair"><blockquote><span class="detail-caption">What the caller said</span>${esc(referenceQuote)}</blockquote><blockquote><span class="detail-caption">What the agent produced</span>${esc(finding.quote || "")}</blockquote></div>`
+        : `${finding.quote ? `<blockquote><span class="detail-caption">What the agent produced</span>${esc(finding.quote)}</blockquote>` : `<p class="field-help">No agent quote was supplied.</p>`}<p class="missing-reference-state">${finding.referenceVerified === true ? "The verified reference quote wasn’t included with this finding." : "A matching reference quote wasn’t available to verify this finding."}</p>`}
+      ${finding.accessibilityImpact ? `<p><span class="detail-caption">Accessibility impact</span>${esc(finding.accessibilityImpact)}</p>` : finding.why_it_matters ? `<p>${esc(finding.why_it_matters)}</p>` : ""}
+      ${missed.length ? `<div class="finding-missed-items"><strong>Missing key items</strong><ul>${missed.map(item => `<li>${esc(item.label || item.id)}</li>`).join("")}</ul></div>` : ""}
+      ${typeof finding.potentialRecoveryPoints === "number" && Number.isFinite(finding.potentialRecoveryPoints) ? `<p class="recovery-estimate">Up to ${esc(finding.potentialRecoveryPoints)} accessibility points from key details (estimate).</p>` : ""}
+      ${coverage ? `<div class="finding-coverage"><span>${esc(coverage)}</span>${coverageKind && finding.coverage_quote ? `<blockquote><span class="detail-caption">Relevant prompt sentence</span>${esc(finding.coverage_quote)}</blockquote>` : ""}</div>` : ""}
     </article>`;
+  }
+  function groupedFindingsMarkup(findings) {
+    if (!findings.length) return `<div class="quiet-empty">No findings to show.</div>`;
+    const grouped = new Map();
+    findings.forEach(finding => {
+      const fallback = finding.parameterLabel || finding.themeLabel || finding.category || "";
+      const label = speechLabel(finding.speechPattern || fallback);
+      if (!grouped.has(label)) grouped.set(label, []);
+      grouped.get(label).push(finding);
+    });
+    return `<div class="finding-pattern-groups">${[...grouped.entries()].map(([label, items]) => `<section class="finding-pattern-group">
+      <h3>${esc(label)}</h3><div class="finding-list">${items.map(item => findingMarkup(item, label)).join("")}</div>
+    </section>`).join("")}</div>`;
   }
   function exactDiffMarkup(diff) {
     if (!Array.isArray(diff) || !diff.length) return `<div class="sim-empty">No prompt changes to display.</div>`;
@@ -1003,8 +1120,10 @@
     </section>`;
   }
   function scorePromptEdits(evaluation) {
-    const edits = Array.isArray(evaluation?.promptUpdates) ? evaluation.promptUpdates :
-      Array.isArray(evaluation?.parsedResult?.promptEdits) ? evaluation.parsedResult.promptEdits : [];
+    const edits = Array.isArray(evaluation?.promptUpdates) &&
+      (evaluation.promptUpdates.length || evaluation?.rubric_version)
+      ? evaluation.promptUpdates
+      : Array.isArray(evaluation?.parsedResult?.promptEdits) ? evaluation.parsedResult.promptEdits : [];
     return edits.map(edit => ({ ...edit, id: edit.id == null ? "" : String(edit.id) }))
       .sort((a, b) => {
         const priority = item => typeof item.priorityHundredths === "number" ? item.priorityHundredths :
@@ -1015,24 +1134,21 @@
   function scoreEditGroups(edits) {
     const grouped = new Map();
     edits.forEach(edit => {
-      const rawName = edit.category || edit.theme || "Prompt guidance";
-      const name = /uncategorized|untitled/i.test(String(rawName)) ? "Prompt guidance" : rawName;
+      const rawName = edit.speechPattern || edit.category || edit.theme || "";
+      const name = speechLabel(rawName);
       if (!grouped.has(name)) grouped.set(name, []);
       grouped.get(name).push(edit);
     });
-    const groups = [...grouped.entries()];
-    if (groups.length <= 4) return groups.map(([label, items]) => ({ label, items }));
-    return [
-      ...groups.slice(0, 3).map(([label, items]) => ({ label, items })),
-      { label: "Other", items: groups.slice(3).flatMap(([, items]) => items) }
-    ];
+    return [...grouped.entries()].map(([label, items]) => ({ label, items }));
   }
   function verifiedEvidenceForEdit(evaluation, edit) {
     const addresses = Array.isArray(edit.addresses) ? edit.addresses.map(String) :
       edit.addresses == null ? [] : [String(edit.addresses)];
     const findings = Array.isArray(evaluation.verifiedFindings) ? evaluation.verifiedFindings : [];
     return findings.filter(finding => typeof finding.quote === "string" && finding.quote.trim() &&
-      (addresses.includes(String(finding.id)) || addresses.includes(String(finding.parameter_id))));
+      (addresses.length
+        ? addresses.includes(String(finding.id)) || addresses.includes(String(finding.parameter_id))
+        : edit.speechPattern && String(finding.speechPattern || "") === String(edit.speechPattern)));
   }
   function scoreEditsMarkup(evaluation, edits) {
     if (!edits.length) return `<div class="performance-empty"><p>No prompt changes were suggested for this review.</p></div>`;
@@ -1040,14 +1156,18 @@
     return `<div class="score-edit-groups">${groups.map(group => `<section class="score-edit-group"><h3>${esc(group.label)}</h3><div class="score-edit-list">${group.items.map(edit => {
       const evidence = verifiedEvidenceForEdit(evaluation, edit);
       const typeLabel = edit.type === "replace" ? "Change this wording" : "Add this instruction";
+      const title = findingTitle(edit.title, group.label);
+      const missed = Array.isArray(edit.missedItems) ? edit.missedItems.filter(item => item && (item.label || item.id)) : [];
       return `<article class="score-edit-card">
-        <div class="score-edit-title"><strong>${esc(/uncategorized|untitled/i.test(String(edit.category || edit.theme || "")) ? group.label : edit.category || edit.theme || group.label)}</strong>${edit.priorityPoints != null ? `<span>${esc(edit.priorityPoints)} points</span>` : ""}</div>
+        ${title ? `<div class="score-edit-title"><strong>${esc(title)}</strong></div>` : ""}
         ${edit.rationale ? `<p>${esc(edit.rationale)}</p>` : ""}
-        ${evidence.map(finding => `<div class="score-edit-evidence"><strong>${esc(finding.title || finding.parameterLabel || "Verified finding")}</strong>${finding.quote ? `<blockquote>${esc(finding.quote)}</blockquote>` : ""}</div>`).join("")}
+        ${missed.length ? `<div class="finding-missed-items"><strong>Missing key items</strong><ul>${missed.map(item => `<li>${esc(item.label || item.id)}</li>`).join("")}</ul></div>` : ""}
+        ${typeof edit.potentialRecoveryPoints === "number" && Number.isFinite(edit.potentialRecoveryPoints) ? `<p class="recovery-estimate">Up to ${esc(edit.potentialRecoveryPoints)} accessibility points from key details (estimate).</p>` : ""}
+        ${evidence.map(finding => `<div class="score-edit-evidence">${finding.title && findingTitle(finding.title, group.label) ? `<strong>${esc(findingTitle(finding.title, group.label))}</strong>` : ""}${finding.quote ? `<blockquote><span class="detail-caption">What the agent produced</span>${esc(finding.quote)}</blockquote>` : ""}</div>`).join("")}
         ${edit.new_text || edit.newText ? `<div class="score-edit-text"><span>${esc(typeLabel)}</span><pre>${esc(edit.new_text ?? edit.newText)}</pre></div>` : ""}
         ${edit.expected_effect ? `<p><span class="detail-caption">Expected effect</span>${esc(edit.expected_effect)}</p>` : ""}
         ${edit.verify_by ? `<p><span class="detail-caption">Check this by</span>${esc(edit.verify_by)}</p>` : ""}
-        <button type="button" class="button secondary small" data-proposal-edit="${esc(edit.id)}" ${!edit.id || !evaluation.id || hasActiveWork() ? "disabled" : ""}>Apply this change</button>
+        <button type="button" class="button secondary small" data-proposal-edit="${esc(edit.id)}" ${!edit.id || !evaluation.id || hasActiveWork() ? "disabled" : ""}>Apply</button>
       </article>`;
     }).join("")}</div></section>`).join("")}</div>`;
   }
@@ -1098,6 +1218,16 @@
       excerptLength: evaluation.excerptLength ?? snapshot.excerptLength ?? ctx.experiment.excerptLength
     };
     return matchingCandidate(experiment, sample);
+  }
+  function evaluatedCandidate(evaluation, ctx) {
+    if (!evaluation) return null;
+    if (evaluation.evaluatedRunId != null) {
+      const linked = state.jobs.find(job => job.kind === "candidate" &&
+        String(job.id) === String(evaluation.evaluatedRunId) &&
+        (evaluation.sampleId == null || String(job.sampleId) === String(evaluation.sampleId)));
+      if (linked) return linked;
+    }
+    return matchingCandidateForEvaluation(evaluation, ctx);
   }
   function sandboxForEvaluation(evaluation) {
     return state.jobs.filter(job => job.kind === "candidate" && job.sandbox &&
@@ -1159,7 +1289,7 @@
                 : `${scoreSummaryMarkup(evaluation, false)}
                   ${result?.summary ? `<section class="score-section review-summary"><p class="section-label">Evaluation summary</p><p>${esc(result.summary)}</p></section>` : ""}
                   <section class="score-section"><div class="score-section-heading"><div><p class="section-label">Listening review</p><h2>What we looked for</h2></div></div>${themeCardsMarkup(evaluation)}</section>
-                  <section class="score-section"><div class="score-section-heading"><div><p class="section-label">Findings</p><h2>What we found in the transcript</h2></div></div>${issueList.length ? `<div class="finding-list">${issueList.map(findingMarkup).join("")}</div>` : `<div class="quiet-empty">No findings to show.</div>`}</section>
+                  <section class="score-section"><div class="score-section-heading"><div><p class="section-label">Review findings</p><h2>What went wrong</h2></div></div>${issueList.length ? groupedFindingsMarkup(issueList) : `<div class="quiet-empty">No findings to show.</div>`}</section>
                   <section class="score-section"><p class="section-label">More about this result</p><div class="review-disclosures">
                     ${scoreCalculationMarkup(evaluation)}
                     ${runDetailsMarkup(evaluation)}
@@ -1175,14 +1305,14 @@
                   </div></section>`}`
               : result
                 ? `${outOfDate}<section class="legacy-review"><div class="legacy-title"><h2>${esc(result.summary || "Evaluation summary")}</h2></div>
-                  ${legacyIssues.length ? `<div class="finding-list">${legacyIssues.map(issue => findingMarkup({ ...issue, parameterLabel: issue.category && issue.category !== "Uncategorized" ? issue.category : "Related area", why_it_matters: issue.why })).join("")}</div>` : `<div class="quiet-empty">No findings to show.</div>`}
+                  ${legacyIssues.length ? groupedFindingsMarkup(legacyIssues.map(issue => ({ ...issue, speechPattern: issue.speechPattern || issue.category || "", why_it_matters: issue.why }))) : `<div class="quiet-empty">No findings to show.</div>`}
                   ${debugMode() ? `<details class="score-disclosure"><summary>Developer details</summary>${outputSection("Transcript", safeDebugText(baseline?.userInputTranscript || ""))}${outputSection(rawOutputLabel(evaluation, "Raw evaluator response"), safeDebugText(evaluation.rawOutput || ""))}${legacyDiff.length ? exactDiffMarkup(legacyDiff) : ""}</details>` : ""}
                 </section>`
                 : `${outOfDate}${errorMarkup(evaluation)}<div class="error-box">We couldn’t finish this evaluation. Please try again.</div>
                   ${evaluation.parseError ? `<button type="button" id="score-retry" class="button small" ${hasActiveWork() || !eligibleBaseline(baseline) ? "disabled" : ""}>Evaluate your voice agent · retry</button>` : ""}
                   ${runDetailsMarkup(evaluation)}`;
     const updatedPromptPanel = rubricResult && evaluation && !evaluationActive && !mismatchedUseCase
-      ? `<section class="score-section prompt-revision"><div class="score-section-heading"><div><p class="section-label">Prompt revision</p><h2>Recommended changes</h2><p class="section-subtitle">Your prompt stays as it is until you choose Use.</p></div></div>
+      ? `<section class="score-section prompt-revision"><div class="score-section-heading"><div><p class="section-label">Prompt revision</p><h2>Recommended prompt edits</h2><p class="section-subtitle">Your prompt stays as it is until you choose Use.</p></div></div>
         ${promptUpdatesMarkup(evaluation)}
         ${unapplied.length ? `<details class="score-disclosure unapplied-disclosure"><summary>Changes not included (${unapplied.length})</summary><div class="review-list">${unapplied.map(item => `<article class="review-list-item"><strong>${esc(updateTypeText(item.type))}</strong><p>${esc(item.new_text || "This suggestion could not be included.")}</p></article>`).join("")}</div></details>` : ""}
         ${evaluation.promptUpdateSetRejected ? `<div class="review-note">We couldn’t use these prompt suggestions. Your prompt is unchanged.</div>` : ""}
@@ -1190,7 +1320,7 @@
         <div class="prompt-actions"><button type="button" class="button" id="use-prompt" ${!promptAvailable ? "disabled" : ""}>Use these changes</button><button type="button" class="button secondary" id="copy-prompt" ${!promptAvailable ? "disabled" : ""}>Copy revised prompt</button><button type="button" class="button secondary" id="export-prompt" ${!promptAvailable ? "disabled" : ""}>Download .txt</button></div><p class="copy-feedback" id="prompt-action-feedback" aria-live="polite"></p><div id="manual-copy-slot"></div>
       </section>`
       : evaluation && !rubricResult && result && !evaluationActive && !mismatchedUseCase
-        ? `<section class="score-section legacy-edits"><div class="score-section-heading"><div><p class="section-label">Prompt revision</p><h2>Suggested changes</h2></div></div>${legacyEdits.length ? `<div class="edit-list">${legacyEdits.map(editMarkup).join("")}</div>` : `<p class="field-help">No prompt changes were suggested.</p>`}${evaluation.suggestedPrompt ? `<details class="suggested-prompt"><summary>Revised prompt</summary><pre class="output-block">${esc(evaluation.suggestedPrompt)}</pre></details>` : ""}<div class="prompt-actions"><button type="button" class="button" id="apply-suggested" ${typeof evaluation.suggestedPrompt !== "string" ? "disabled" : ""}>Use these changes</button><button type="button" class="button secondary" id="copy-suggested" ${typeof evaluation.suggestedPrompt !== "string" ? "disabled" : ""}>Copy revised prompt</button><button type="button" class="button secondary" id="export-suggested" ${typeof evaluation.suggestedPrompt !== "string" ? "disabled" : ""}>Download .txt</button></div><p class="copy-feedback" id="copy-feedback" aria-live="polite"></p><div id="manual-copy-slot"></div></section>`
+        ? `<section class="score-section legacy-edits"><div class="score-section-heading"><div><p class="section-label">Prompt revision</p><h2>Recommended prompt edits</h2></div></div>${legacyEdits.length ? `<div class="edit-list">${legacyEdits.map(editMarkup).join("")}</div>` : `<p class="field-help">No prompt changes were suggested.</p>`}${evaluation.suggestedPrompt ? `<details class="suggested-prompt"><summary>Revised prompt</summary><pre class="output-block">${esc(evaluation.suggestedPrompt)}</pre></details>` : ""}<div class="prompt-actions"><button type="button" class="button" id="apply-suggested" ${typeof evaluation.suggestedPrompt !== "string" ? "disabled" : ""}>Use these changes</button><button type="button" class="button secondary" id="copy-suggested" ${typeof evaluation.suggestedPrompt !== "string" ? "disabled" : ""}>Copy revised prompt</button><button type="button" class="button secondary" id="export-suggested" ${typeof evaluation.suggestedPrompt !== "string" ? "disabled" : ""}>Download .txt</button></div><p class="copy-feedback" id="copy-feedback" aria-live="polite"></p><div id="manual-copy-slot"></div></section>`
         : "";
     const outOfDateTag = evaluation && (audit?.outOfDate || mismatchedUseCase) ? `<span class="out-of-date-tag">Out of date</span>` : "";
     const evaluatedSample = evaluation && ctx.samples.find(item => String(item.id) === String(evaluation.sampleId));
@@ -1240,7 +1370,7 @@
       ? state.jobs.find(job => job.kind === "baseline" && String(job.id) === String(evaluation.baselineId))
       : null;
     const isPartialBaseline = baseline?.status === "partial";
-    const candidate = matchingCandidate(ctx.experiment, sample);
+    const candidate = evaluation ? evaluatedCandidate(evaluation, ctx) : matchingCandidate(ctx.experiment, sample);
     const beforeCandidate = evaluation ? matchingCandidateForEvaluation(evaluation, ctx) : null;
     const updates = scorePromptEdits(evaluation);
     const findings = Array.isArray(evaluation?.verifiedFindings)
@@ -1282,19 +1412,17 @@
               ${mismatchedUseCase ? `<section class="score-section review-note"><strong>This saved review is from ${esc(evaluation.useCase?.label || evaluation.useCaseLabel || "another use case")}.</strong><p>Current setup: ${esc(sample?.use_case_label || "another use case")}. This review remains with its original use case.</p></section>` : ""}
               <section class="score-section review-findings">
                     ${result?.summary ? `<p class="review-summary-copy">${esc(result.summary)}</p>` : ""}
-                    <div class="score-section-heading"><div><p class="section-label">Verified findings</p><h2>What to improve</h2></div></div>
+                    <div class="score-section-heading"><div><p class="section-label">Review findings</p><h2>What went wrong</h2></div></div>
                     ${findings.length
-                      ? `<div class="finding-list">${findings.map(findingMarkup).join("")}</div>`
+                      ? groupedFindingsMarkup(findings)
                       : legacyIssues.length
-                        ? `<div class="finding-list">${legacyIssues.map(issue => findingMarkup({ ...issue, parameterLabel: /uncategorized|untitled/i.test(String(issue.category || "")) ? "Related area" : issue.category || "Related area", why_it_matters: issue.why })).join("")}</div>`
+                        ? groupedFindingsMarkup(legacyIssues.map(issue => ({ ...issue, speechPattern: issue.speechPattern || issue.category || "", why_it_matters: issue.why })))
                         : `<div class="quiet-empty">No verified findings were saved for this review.</div>`}
               </section>
                   <section class="score-section">
-                    <div class="score-section-heading"><div><p class="section-label">Recommended system prompt edits</p><h2>Make the next test clearer</h2></div></div>
+                    <div class="score-section-heading"><div><p class="section-label">Prompt edits</p><h2>Recommended prompt edits</h2></div></div>
                     ${updates.length ? `<div class="score-proposal-controls"><button type="button" class="button secondary small" id="proposal-all" ${hasActiveWork() || evaluationActive ? "disabled" : ""}>Apply all</button><span>Changes are prepared for a separate test. Your current prompt stays unchanged.</span></div>${scoreEditsMarkup(evaluation, updates)}` :
-                      legacyIssues.length && Array.isArray(result?.promptEdits) && result.promptEdits.length
-                        ? `<div class="edit-list">${result.promptEdits.map(editMarkup).join("")}</div>`
-                        : `<div class="performance-empty"><p>No prompt edits were saved for this review.</p></div>`}
+                      `<div class="performance-empty"><p>No prompt edits were saved for this review.</p></div>`}
                     ${unapplied.length ? `<details class="score-disclosure unapplied-disclosure"><summary>Could not be applied (${unapplied.length})</summary><div class="review-list">${unapplied.map(item => `<article class="review-list-item"><strong>${esc(updateTypeText(item.type))}</strong><p>${esc(item.new_text || "This suggestion could not be included.")}</p></article>`).join("")}</div></details>` : ""}
                     ${proposalLoading ? `<p class="review-audit-status" role="status">Preparing your prompt changes…</p>` : ""}
                     ${proposalError ? `<div class="error-box" role="alert">${esc(proposalError)} <button type="button" class="button secondary small" id="retry-proposal">Try again</button></div>` : ""}

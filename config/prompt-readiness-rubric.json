@@ -1,5 +1,5 @@
 {
-  "rubric_version": "1.0.0",
+  "rubric_version": "1.1.0",
   "themes": [
     {"id":"safety_escalation","label":"Safety and escalation signals"},
     {"id":"clinical_terms","label":"Medical terms, numbers and identifiers"},
