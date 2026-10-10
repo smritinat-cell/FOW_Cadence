@@ -52,7 +52,7 @@
       ctx.content.innerHTML = `${heading("Simulation", "02", "Review the recording’s baseline result.")}${meta}
         <section class="panel sim-config-panel"><div class="panel-header"><div><p class="section-label">Run settings</p><h2 class="section-title">Choose a speech model</h2></div></div>
           <div class="sim-model-actions"><div class="field sim-model-field"><label for="model-select">Model</label><select id="model-select"${running ? " disabled" : ""}>${[1, 2, 3, 4].map(index => `<option value="demo-model-${index}"${model === `demo-model-${index}` ? " selected" : ""}>Speech model ${index}</option>`).join("")}</select></div>
-          <div class="sim-run-buttons"><button type="button" class="button" id="demo-run-baseline"${running ? " disabled" : ""}>${running && runKind === "baseline" ? "Running…" : "Run baseline"}</button><button type="button" class="button secondary" id="demo-run-candidate"${running ? " disabled" : ""}>${running && runKind === "candidate" ? "Running…" : "Run with my prompt"}</button></div></div></section>
+          <div class="sim-run-buttons"><button type="button" class="button" id="demo-run-baseline"${running ? " disabled" : ""}>${running && runKind === "baseline" ? "Running…" : "Run baseline"}</button></div></div></section>
         <div class="demo-stage-grid${!hasRun && !running ? " demo-before-run" : ""}" id="demo-run-output">${output}<section class="score-section"><div class="field"><label class="section-label" for="demo-system-prompt">System prompt used</label><textarea id="demo-system-prompt" class="output-block demo-prompt-editor" rows="5" spellcheck="false">${escape(prompt)}</textarea></div>${hasRun && !running ? '<div class="demo-actions"><a class="button" href="#/scorecard">Continue to Scorecard</a></div>' : ""}</section></div>`;
       document.getElementById("demo-system-prompt").addEventListener("input", event => {
         if (ctx.experiment) ctx.experiment.prompt = event.currentTarget.value;
@@ -62,7 +62,7 @@
         if (ctx.experiment) ctx.experiment.model = event.currentTarget.value;
         ctx.saveExperiment?.();
       });
-      for (const kind of ["baseline", "candidate"]) document.getElementById(`demo-run-${kind}`).addEventListener("click", () => {
+      for (const kind of ["baseline"]) document.getElementById(`demo-run-${kind}`).addEventListener("click", () => {
         if (running) return;
         const sequence = ++runSequence;
         runSampleId = selectedId;
