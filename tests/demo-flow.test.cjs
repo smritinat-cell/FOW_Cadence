@@ -76,13 +76,21 @@ test('the demo stages share saved text and Fix reveals the completed output with
   assert.doesNotMatch(content.innerHTML,/data-proposal-edit/);
   assert.doesNotMatch(content.innerHTML,/Completed demo result/);
   elements.get('demo-fix').handlers.click();
-  assert.match(content.innerHTML,/<strong>84<small>\/ 100<\/small><\/strong>/);
+  assert.match(content.innerHTML,/<strong>46<small>\/ 100<\/small><\/strong>/);
+  assert.match(content.innerHTML,/<strong>2 of 5<small> · 40%<\/small><\/strong>/);
+  assert.match(content.innerHTML,/<strong>52%<\/strong>/);
+  assert.doesNotMatch(content.innerHTML,/<strong>84<small>\/ 100<\/small><\/strong>/);
   assert.match(content.innerHTML,/Completed demo result/);
   assert.match(content.innerHTML,/Nintendo sixty-four/);
   assert.match(content.innerHTML,/Produce a readable English transcript of the audio/);
   assert.match(content.innerHTML,/<strong>59<\/strong>/);
   sandbox.location.hash='#/comparison';demo.render(ctx,'/comparison');await settle();
   assert.equal(content.innerHTML,'Comparison');
+  sandbox.location.hash='#/scorecard';demo.render(ctx,'/scorecard');await settle();
+  assert.match(content.innerHTML,/<strong>46<small>\/ 100<\/small><\/strong>/);
+  assert.doesNotMatch(content.innerHTML,/<strong>84<small>\/ 100<\/small><\/strong>/);
+  elements.get('demo-test-changes').handlers.click();
+  assert.match(content.innerHTML,/<strong>46<small>\/ 100<\/small><\/strong>/);
   assert.deepEqual(requests,['./comparison-results.json']);
 });
 

@@ -85,7 +85,7 @@
     }
     const changes = window.TranscriptDiff.compare(pair.old.text, pair.new.text);
     const ui = window.CadenceSimulation.scorecardMarkup;
-    const result = fixed ? pair.new : pair.old;
+    const result = pair.old;
     const findings = [
       { id: "repetition", severity: "medium", parameterLabel: "Speech patterns", title: "Repeated wording obscures the completed phrase", quote: "new, new, um, new, um, books", why_it_matters: "Hesitation fillers and repetitions make the response harder to read.", prompt_coverage: "none" },
       { id: "vocabulary", severity: "medium", parameterLabel: "Vocabulary and uncertainty", title: "Unfamiliar terms need clearer guidance", quote: "Nin, for my Nin Ten, Nin Ten", why_it_matters: "Reference vocabulary can help identify unfamiliar terms while preserving uncertainty.", prompt_coverage: "none" }
