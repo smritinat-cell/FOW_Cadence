@@ -2,7 +2,6 @@
 (function (root) {
   "use strict";
   const MAX_TEXT = 100000;
-  const MAX_FILE_BYTES = 2 * 1024 * 1024;
   const MAX_ALIGNMENT_CELLS = 16000000;
   const diff = typeof module !== "undefined" && module.exports
     ? require("./transcript-diff.js") : root.TranscriptDiff;
@@ -52,7 +51,7 @@
   }
 
   function comparisonContext(a, b) {
-    if (!a || !b) return "Load both results to compare their wording.";
+    if (!a || !b) return "Both results are required to compare their wording.";
     const hashA = a.audio?.sha256, hashB = b.audio?.sha256;
     const modelA = a.engine?.model, modelB = b.engine?.model;
     if ((hashA && hashB && hashA !== hashB) || (modelA && modelB && modelA !== modelB)) {
@@ -69,7 +68,6 @@
   }
 
   const records = { old: null, new: null };
-  const imports = { old: 0, new: 0 };
   let host = null;
   let highlighted = true;
   let comparison = null;
@@ -90,6 +88,11 @@
     if (host?.isConnected && host.querySelector(".comparison-screen")) update();
   }
 
+  function visibleResult(side) {
+    const result = records[side];
+    return selectedFilename && result?.source?.name && result.source.name !== selectedFilename ? null : result;
+  }
+
   function card(side, letter, title, subtitle) {
     return `<section class="panel response-card response-${side}" aria-labelledby="${side}-heading">
       <div class="response-heading"><div><p class="response-kicker">${letter} · ${subtitle}</p><h2 id="${side}-heading">${title}</h2></div><span class="response-status" id="${side}-status">Awaiting result</span></div>
@@ -98,10 +101,6 @@
       <div class="response-transcript" id="${side}-text" tabindex="0" role="region" aria-label="${title} model response"></div>
       <div class="response-actions"><button class="button secondary small" type="button" id="${side}-copy" disabled>Copy response</button><div><button class="comparison-link" type="button" id="${side}-txt" disabled>↓ TXT</button><button class="comparison-link" type="button" id="${side}-json" disabled>↓ JSON</button></div></div>
       <details class="response-details" id="${side}-details" hidden><summary>Inspect run details</summary><dl id="${side}-run-details"></dl></details>
-      <details class="response-import"><summary>Load ${side} result <span>JSON / TXT / paste</span></summary>
-        <label class="result-upload" for="${side}-file">Choose a saved result<input type="file" id="${side}-file" accept=".json,.txt,application/json,text/plain"></label>
-        <form id="${side}-paste-form"><label for="${side}-paste">Or paste the raw response</label><textarea id="${side}-paste" rows="3" maxlength="100000" placeholder="Paste transcript text…"></textarea><button class="button secondary small" type="submit">Use this response</button></form>
-      </details>
     </section>`;
   }
 
@@ -113,9 +112,7 @@
       <div class="comparison-source"><span id="comparison-source-name">Load a pair of results</span></div>
       <div class="comparison-toolbar"><div class="comparison-counts" role="status" aria-live="polite"><span class="change-count removed" id="comparison-removed">Removed from old · —</span><span class="change-count added" id="comparison-added">Added in new · —</span></div><label class="comparison-toggle"><input id="comparison-highlight" type="checkbox" checked>Highlight changes</label></div>
       <div class="response-grid">${card("old", "A", "Old transcript", "BASELINE")}${card("new", "B", "New transcript", "REVISED PROMPT")}</div>
-      <p class="comparison-context" id="comparison-context"></p>
       <p class="comparison-feedback" id="comparison-feedback" role="status" aria-live="polite"></p>
-      <p class="comparison-footnote">Original response text is preserved, including repetitions and line breaks. Punctuation changes are highlighted separately from the word counts. Imported results stay in this tab.</p>
     </div>`;
     element("comparison-highlight").checked = highlighted;
     element("comparison-highlight").addEventListener("change", event => {
@@ -123,27 +120,6 @@
       renderTranscripts();
     });
     for (const side of ["old", "new"]) {
-      element(`${side}-file`).addEventListener("change", async event => {
-        const file = event.target.files[0];
-        if (!file) return;
-        const request = ++imports[side];
-        try {
-          if (file.size > MAX_FILE_BYTES) throw new Error("Choose a result file smaller than 2 MB.");
-          const result = parseImport(await file.text(), file.name);
-          if (request !== imports[side]) return;
-          setResult(side, result);
-          if (host.querySelector(".comparison-screen")) announce(`Loaded ${side} response from ${file.name}.`);
-        } catch (error) {
-          if (host.querySelector(".comparison-screen")) announce(error.message);
-        }
-        event.target.value = "";
-      });
-      element(`${side}-paste-form`).addEventListener("submit", event => {
-        event.preventDefault();
-        imports[side]++;
-        setResult(side, { text: element(`${side}-paste`).value });
-        announce(`Loaded ${side} response. Audio and model metadata are unavailable for pasted text.`);
-      });
       element(`${side}-copy`).addEventListener("click", async () => {
         const rawText = records[side].text;
         try { await navigator.clipboard.writeText(rawText); announce(`Copied the ${side} response.`); }
@@ -180,28 +156,22 @@
           if (host?.querySelector(".comparison-screen")) update();
         })
         .catch(() => {
-          if (host?.querySelector(".comparison-screen")) announce("Load saved JSON or TXT results using the controls beneath each transcript.");
+          if (host?.querySelector(".comparison-screen")) announce("Saved comparison results are unavailable.");
         });
     }
   }
 
   function update() {
-    const ready = Boolean(records.old && records.new);
-    comparison = ready ? compareResults(records.old, records.new) : null;
+    const oldResult = visibleResult("old"), newResult = visibleResult("new");
+    const ready = Boolean(oldResult && newResult);
+    comparison = ready ? compareResults(oldResult, newResult) : null;
     element("comparison-removed").textContent = comparison ? `Removed from old · ${comparison.removedWords} words` : "Removed from old · —";
     element("comparison-added").textContent = comparison ? `Added in new · ${comparison.addedWords} words` : "Added in new · —";
     element("comparison-highlight").disabled = !comparison;
-    let context = comparisonContext(records.old, records.new);
-    if (ready && !comparison) context += " Highlights unavailable for transcripts this long; raw responses remain available.";
-    else if (comparison?.changedTokens === 0) context += " No word or punctuation changes.";
     const names = [...new Set([records.old?.source?.name, records.new?.source?.name].filter(Boolean))];
     element("comparison-source-name").textContent = selectedFilename || (names.length ? names.join(" ↔ ") : "Two raw model responses");
-    if (selectedFilename && names.some(name => name !== selectedFilename)) {
-      context += ` Displayed saved responses are from ${names.join(" and ")}. Load results for ${selectedFilename} to compare the selected audio.`;
-    }
-    element("comparison-context").textContent = context;
     for (const side of ["old", "new"]) {
-      const result = records[side];
+      const result = visibleResult(side);
       element(`${side}-status`).textContent = result ? "Saved response" : "Awaiting result";
       element(`${side}-partial`).hidden = result?.complete !== false;
       element(`${side}-details`).hidden = !result;
@@ -210,7 +180,7 @@
       if (typeof result?.audio?.start_seconds === "number" && typeof result?.audio?.duration_seconds === "number") {
         metadata.push(`${result.audio.start_seconds}s → ${(result.audio.start_seconds + result.audio.duration_seconds).toFixed(1)}s`);
       }
-      element(`${side}-meta`).textContent = metadata.filter(Boolean).join(" · ") || (result ? "Audio and model metadata unavailable" : "Load a saved model response");
+      element(`${side}-meta`).textContent = metadata.filter(Boolean).join(" · ") || (result ? "Audio and model metadata unavailable" : "Awaiting a model response");
       const detail = element(`${side}-run-details`);
       detail.replaceChildren();
       if (result) for (const [label, value] of [
@@ -229,11 +199,11 @@
 
   function renderTranscripts() {
     for (const side of ["old", "new"]) {
-      const target = element(`${side}-text`), result = records[side];
+      const target = element(`${side}-text`), result = visibleResult(side);
       const scroll = target.scrollTop;
       target.replaceChildren();
       target.classList.toggle("response-empty", !result);
-      if (!result) target.textContent = `Your ${side} transcript will appear here. Load a saved result below.`;
+      if (!result) target.textContent = `Your ${side} transcript will appear here once results are available.`;
       else if (!highlighted || !comparison) target.textContent = result.text;
       else for (const segment of comparison[side]) {
         if (!segment.changed) target.append(document.createTextNode(segment.text));
