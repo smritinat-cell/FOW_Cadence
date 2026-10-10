@@ -363,7 +363,7 @@
       },
       "/scorecard": {
         title: "Your review will appear here",
-        intro: "Run an evaluation to see what to improve in your prompt.",
+        intro: "Click Evaluate your voice agent to see what to improve in your prompt.",
         action: "Go to Simulation"
       },
       "/comparison": { title: "Before & after", intro: "", action: "Go to Simulation" }

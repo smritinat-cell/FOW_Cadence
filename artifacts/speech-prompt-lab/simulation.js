@@ -274,7 +274,7 @@
       ${partialReview ? `<p class="review-note">Based on a partial transcript, so results may be incomplete.</p>` : ""}
       ${job.kind === "evaluation" && state.detailsLoading.has(String(job.id)) ? `<p class="review-audit-status" aria-busy="true">Loading your evaluation…</p>` : ""}
       ${job.kind === "evaluation" && state.detailErrors.has(String(job.id)) ? `<div class="error-box">We couldn’t load this evaluation. <button type="button" class="button secondary small" id="retry-evaluation-details">Try again</button>${debugMode() ? `<p>${esc(safeDebugText(state.detailErrors.get(String(job.id))))}</p>` : ""}</div>` : ""}
-      ${job.kind === "evaluation" && job.parseError ? `<div class="error-box">We couldn’t finish this evaluation. Please try again.</div><button type="button" class="button small" id="retry-evaluation" ${hasActiveWork() || !eligibleBaseline(associatedBaseline) ? "disabled" : ""}>${partialReview ? "Evaluate partial transcript" : "Evaluate prompt"}</button>` : ""}
+      ${job.kind === "evaluation" && job.parseError ? `<div class="error-box">We couldn’t finish this evaluation. Please try again.</div><button type="button" class="button small" id="retry-evaluation" ${hasActiveWork() || !eligibleBaseline(associatedBaseline) ? "disabled" : ""}>Evaluate your voice agent · retry</button>` : ""}
       ${job.kind === "baseline" ? outputSection(rawOutputLabel(job, "Transcript"), job.userInputTranscript || job.rawOutput) : `${evaluationSummary ? `<section class="review-summary"><p class="section-label">Evaluation summary</p><p>${esc(evaluationSummary)}</p></section>` : ""}${job.parseError ? `<div class="error-box">We couldn’t finish this evaluation. Please try again.</div>` : ""}${rubricVisibility(job)}`}
       ${debugMode() ? `<details><summary class="section-label">Developer details</summary>
         <p>Run ID: ${esc(safeDebugText(job.id))}</p>
@@ -1146,7 +1146,7 @@
     const legacyEdits = Array.isArray(result?.promptEdits) ? result.promptEdits : [];
     const legacyDiff = Array.isArray(evaluation?.diff) ? evaluation.diff : [];
     const primaryResultMarkup = !evaluation
-       ? state.historyLoading || detailLoading ? `<div class="review-loading" aria-busy="true"><span></span><span></span><span></span>Loading your runs…</div>` : state.historyFailed ? `<div class="scorecard-empty" role="alert"><p>We couldn’t load your saved reviews. Please try again.</p><button type="button" class="button secondary small" id="retry-run-history">Try again</button></div>` : `<div class="scorecard-empty"><strong>${sample ? "No saved reviews yet" : "Choose a use case"}</strong><p>${sample ? "Run a baseline transcript, then evaluate your prompt." : "Start in Set up an eval."}</p></div>`
+       ? state.historyLoading || detailLoading ? `<div class="review-loading" aria-busy="true"><span></span><span></span><span></span>Loading your runs…</div>` : state.historyFailed ? `<div class="scorecard-empty" role="alert"><p>We couldn’t load your saved reviews. Please try again.</p><button type="button" class="button secondary small" id="retry-run-history">Try again</button></div>` : `<div class="scorecard-empty"><strong>${sample ? "No saved reviews yet" : "Choose a use case"}</strong><p>${sample ? "Run a baseline transcript, then click Evaluate your voice agent." : "Start in Set up an eval."}</p></div>`
       : evaluationActive
         ? `<div class="active-review" role="status"><div><span class="live-dot"></span><strong>Evaluation · ${esc(statusText(evaluation.status))}</strong></div>${progressMarkup(evaluation)}${errorMarkup(evaluation)}<p>This review is still running. Results appear when it finishes.</p>${activeStatuses.has(evaluation.status) ? `<button type="button" class="button secondary small" data-stop-id="${esc(evaluation.id)}">Stop</button>` : ""}</div>`
         : detailLoading
@@ -1179,7 +1179,7 @@
                   ${debugMode() ? `<details class="score-disclosure"><summary>Developer details</summary>${outputSection("Transcript", safeDebugText(baseline?.userInputTranscript || ""))}${outputSection(rawOutputLabel(evaluation, "Raw evaluator response"), safeDebugText(evaluation.rawOutput || ""))}${legacyDiff.length ? exactDiffMarkup(legacyDiff) : ""}</details>` : ""}
                 </section>`
                 : `${outOfDate}${errorMarkup(evaluation)}<div class="error-box">We couldn’t finish this evaluation. Please try again.</div>
-                  ${evaluation.parseError ? `<button type="button" id="score-retry" class="button small" ${hasActiveWork() || !eligibleBaseline(baseline) ? "disabled" : ""}>${livePartial ? "Evaluate partial transcript" : "Evaluate prompt"}</button>` : ""}
+                  ${evaluation.parseError ? `<button type="button" id="score-retry" class="button small" ${hasActiveWork() || !eligibleBaseline(baseline) ? "disabled" : ""}>Evaluate your voice agent · retry</button>` : ""}
                   ${runDetailsMarkup(evaluation)}`;
     const updatedPromptPanel = rubricResult && evaluation && !evaluationActive && !mismatchedUseCase
       ? `<section class="score-section prompt-revision"><div class="score-section-heading"><div><p class="section-label">Prompt revision</p><h2>Recommended changes</h2><p class="section-subtitle">Your prompt stays as it is until you choose Use.</p></div></div>
@@ -1261,7 +1261,7 @@
     const sandboxActive = Boolean((sandbox && activeStatuses.has(sandbox.status)) ||
       (sandboxChild && activeStatuses.has(sandboxChild.status)));
     const reviewButton = baseline && !hasActiveWork()
-      ? `<button type="button" class="button" id="review-results">${isPartialBaseline ? "Review partial transcript" : "Review results"}</button>`
+      ? `<button type="button" class="button" id="review-results">Evaluate your voice agent</button>`
       : "";
     const resultMarkup = state.submittingEvaluation
       ? `<section class="score-section active-review" role="status"><div><span class="live-dot"></span><strong>Starting your review…</strong></div><div class="review-loading" aria-busy="true"><span></span><span></span><span></span></div></section>`
@@ -1270,7 +1270,7 @@
         ? `<div class="review-loading" aria-busy="true"><span></span><span></span><span></span>Loading your runs…</div>`
         : state.historyFailed
           ? `<div class="scorecard-empty" role="alert"><p>We couldn’t load your saved reviews. Please try again.</p><button type="button" class="button secondary small" id="retry-run-history">Try again</button></div>`
-          : `<section class="score-section score-review-empty"><div><strong>${sample ? "No review selected" : "Choose a use case"}</strong><p>${sample ? "Run a baseline transcript in Simulation, then review the results here." : "Select a use case in Set up an eval."}</p></div>${reviewButton}</section>`
+          : `<section class="score-section score-review-empty"><div><strong>${sample ? "No review selected" : "Choose a use case"}</strong><p>${sample ? "Run a baseline transcript in Simulation, then click Evaluate your voice agent here." : "Select a use case in Set up an eval."}</p></div>${reviewButton}</section>`
       : evaluationActive
         ? `<section class="score-section active-review" role="status"><div><span class="live-dot"></span><strong>Review · ${esc(statusText(evaluation.status))}</strong></div>${progressMarkup(evaluation)}${errorMarkup(evaluation)}<p>Results will appear when the review is complete.</p><button type="button" class="button secondary small" data-stop-id="${esc(evaluation.id)}">Stop</button></section>`
         : detailLoading
@@ -1310,7 +1310,7 @@
                       ${sandbox ? `<div class="sandbox-run-status" role="status"><strong>${esc(sandbox.sandbox?.stage === "reviewing" ? "Reviewing the response" : sandboxActive ? simulationStatusText(sandbox.status) : sandbox.sandbox?.stage === "complete" ? "Test complete" : "Test started")}</strong>${sandboxActive ? `<span>${esc(timeLabel(sandbox))}</span><button type="button" class="button secondary small" data-stop-id="${esc(sandbox.id)}">Stop</button>` : ""}<a href="#/comparison">Open before &amp; after</a></div>` : ""}
                     </div>` : ""}
                   </section>
-                  ${evaluation.parseError ? `<div class="error-box">We couldn’t finish this evaluation. Please try again.</div><button type="button" class="button secondary small" id="score-retry" ${hasActiveWork() || !eligibleBaseline(retryBaseline) ? "disabled" : ""}>Try again</button>` : ""}
+                  ${evaluation.parseError ? `<div class="error-box">We couldn’t finish this evaluation. Please try again.</div><button type="button" class="button secondary small" id="score-retry" ${hasActiveWork() || !eligibleBaseline(retryBaseline) ? "disabled" : ""}>Evaluate your voice agent · retry</button>` : ""}
               ${runDetailsMarkup(evaluation)}
               ${debugMode() ? `<details class="score-disclosure"><summary>Review diagnostics</summary>
                 ${outputSection("Unverified list", debugJson(evaluation.unverifiedFindings))}
@@ -1328,7 +1328,7 @@
     const savedReview = evaluation ? `<div class="scorecard-review-heading"><div><p class="section-label">Your saved review</p><p>${esc(evaluation.useCase?.label || sample?.use_case_label || "Current use case")} · ${esc(formatDate(evaluation.createdAt))}</p></div>${reviewButton}</div>` : "";
     const reviewChoice = evaluation ? savedReview : reviewButton ? `<div class="scorecard-review-heading"><div><p class="section-label">Review your setup</p><p>${baselineForReview?.status === "partial" ? "A partial transcript is available to review." : "Choose a completed baseline transcript to review."}</p></div>${reviewButton}</div>` : "";
      ctx.content.innerHTML = `<div class="page-heading scorecard-heading"><div><div class="eyebrow">Review of your agent</div><h1>Review of your agent</h1><p class="page-intro">What we found in the transcript, and how to improve your prompt.</p></div><div class="step-count">STEP 03 / 04</div></div>
-      ${state.error && !state.historyFailed ? `<div class="error-box" role="alert">${esc(state.error)}${state.retryEvaluation ? ` <button type="button" class="button secondary small" id="retry-review-post">Try again</button>` : ""}</div>` : ""}
+      ${state.error && !state.historyFailed ? `<div class="error-box" role="alert">${esc(state.error)}${state.retryEvaluation ? ` <button type="button" class="button secondary small" id="retry-review-post">Evaluate your voice agent · retry</button>` : ""}</div>` : ""}
       <section class="scorecard-toolbar panel">
         <div class="scorecard-select"><label for="evaluation-select">Saved reviews</label><select id="evaluation-select" ${!sample || !jobs.length || state.historyLoading ? "disabled" : ""}><option value="">${jobs.length ? "Choose a saved review…" : state.historyLoading ? "Loading your runs…" : "No saved reviews yet"}</option>${choices}</select>${evaluation && (audit?.outOfDate || mismatchedUseCase) ? `<span class="out-of-date-tag">Out of date</span>` : ""}</div>
       </section>
