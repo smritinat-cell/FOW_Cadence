@@ -1,0 +1,119 @@
+Update the Simulation page to work with the existing four-step Cadence flow:
+
+01 · Set up an eval
+02 · Simulation
+03 · Scorecard
+04 · Before & after
+
+Preserve the existing sidebar, typography, colors, rounded cards, and spacing.
+
+1. Use the existing setup as the source of truth
+
+The previous page already provides:
+• Selected use case.
+• Agent name and purpose.
+• Speech profile tags.
+• System prompt, when supplied.
+• Selected demo sample or uploaded recording.
+• Start offset and excerpt length.
+• Optional reference material.
+
+Carry these values into Simulation without making the user enter them again.
+
+Keep evaluation-library selection, recording selection, uploads, and excerpt configuration on the setup page.
+
+Display a compact setup summary on Simulation with an “Edit setup” link. Returning to setup should preserve the current selections.
+
+2. Make model selection the main configuration control
+
+Add a clearly labeled “Model” dropdown above the run actions.
+
+Show the audio-capable models supported by the existing backend, using readable provider and model names.
+
+The user chooses the model for this evaluation. Use that selection for both baseline and candidate runs.
+
+Changing the model prepares a new test while preserving earlier results and their original model labels.
+
+3. Show the selected recording clearly
+
+Display:
+• Recording name.
+• Selected use case.
+• Speech profile tags.
+• Tested start and end times.
+• Excerpt duration.
+
+Include an audio player for listening to the selected recording. Indicate the range that will be tested.
+
+Use the actual recording selected in setup. Keep its display label and underlying file identity associated with every result.
+
+4. Provide two explicit run actions
+
+“Run baseline”
+Process the selected audio excerpt with the baseline instruction. For transcription, use:
+“Transcribe the audio. Output only the transcript.”
+
+“Run with my prompt”
+Process the same audio excerpt with the system prompt supplied in setup.
+
+Both actions must send the original audio to the selected model.
+
+Inspect the current “Evaluate transcript” implementation. If it only evaluates or rewrites a saved transcript, add the candidate audio-processing path and rename the action to “Run with my prompt.”
+
+Keep the audio range, model, and relevant settings consistent between the paired runs.
+
+Show the exact prompt used for each run in an expandable preview. If a candidate prompt is missing, provide an “Add system prompt” link back to setup.
+
+5. Remove the Run protocol section completely
+
+Delete the entire card, including:
+• The heading.
+• The explanatory sentence.
+• All numbered protocol statements.
+• The join-URL and provider-key statement.
+
+Remove this text from the interface entirely. Use the freed space for run progress and results.
+
+Keep request controls in application behavior: loading the page, changing selections, restoring history, and polling retrieve state; run buttons initiate processing.
+
+6. Show progress and inspectable results
+
+Provide separate baseline and candidate status indicators:
+Queued, Running, Complete, or Failed.
+
+Show available partial output during processing and label it clearly.
+
+For the current single-recording setup, use a compact results row with baseline and candidate cells. Selecting a cell opens its output and run details below.
+
+If the application already supports multiple selected recordings, extend this into a matrix with recordings as rows and prompt versions as columns.
+
+Treat successful processing as completion. Quality assessment belongs to the review and scoring workflow.
+
+7. Keep the four-step responsibilities clear
+
+Simulation:
+Choose the model, run the selected recording, inspect progress, and preview generated outputs.
+
+Scorecard:
+Show evaluation findings and scores, distinguishing estimates from verified accuracy.
+
+Before & after:
+Show the full side-by-side transcript comparison with additions, removals, word counts, and the highlight toggle.
+
+Save both generated outputs so the later pages use those exact results.
+
+Include a “Continue to Scorecard” action when results are available.
+
+8. Preserve run history
+
+Keep history compact and secondary to the active test.
+
+Save the recording identity, audio range, model, exact prompt, settings, output, status, and creation time for each run.
+
+Selecting a historical result should restore its associated information.
+
+Reuse a baseline only when its recording, range, model, prompt, and relevant settings match the current test.
+
+Carry optional reference material forward to the scoring workflow. Record any reference context actually supplied to a model as part of that run’s input snapshot.
+
+The Simulation page should feel like the execution step of the existing setup: review the selected recording, choose a model, run the baseline and system prompt, then continue to the results.

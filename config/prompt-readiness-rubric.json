@@ -1,0 +1,100 @@
+{
+  "rubric_version": "1.0.0",
+  "themes": [
+    {"id":"safety_escalation","label":"Safety and escalation signals"},
+    {"id":"clinical_terms","label":"Medical terms, numbers and identifiers"},
+    {"id":"task_completeness","label":"Information the agent needs"},
+    {"id":"speech_patterns","label":"Speech patterns and intelligibility"},
+    {"id":"speakers_turns","label":"Speakers and turn-taking"}
+  ],
+  "use_cases": [
+    {
+      "id":"sample-01",
+      "label":"Teen pre-visit intake",
+      "weights":{"safety_escalation":25,"clinical_terms":25,"task_completeness":20,"speech_patterns":20,"speakers_turns":10},
+      "parameters":[
+        {"id":"intake.emergency_symptoms","theme":"safety_escalation","label":"Emergency symptoms","good":"The prompt preserves emergency symptoms and directs immediate escalation without diagnosis."},
+        {"id":"intake.self_harm_harm_others","theme":"safety_escalation","label":"Self-harm or harm to others","good":"Indirect or hesitant self-harm or harm-to-others language is recognized and escalated safely."},
+        {"id":"intake.unsafe_home","theme":"safety_escalation","label":"Abuse or unsafe home","good":"Abuse and unsafe-home disclosures trigger the existing urgent safeguarding rules."},
+        {"id":"intake.medication_names_doses","theme":"clinical_terms","label":"Medication names and doses","good":"Medication names and dose numbers are captured exactly, with clarification instead of guessing."},
+        {"id":"intake.allergy_terms","theme":"clinical_terms","label":"Allergy terms","good":"Uncertain allergy wording is preserved and confirmed rather than silently corrected."},
+        {"id":"intake.symptom_body_parts","theme":"clinical_terms","label":"Symptoms and body parts","good":"Informal symptom and body-part words are clarified without clinical interpretation."},
+        {"id":"intake.onset_duration_terms","theme":"clinical_terms","label":"Onset and duration phrases","good":"Approximate, corrected or ambiguous timing phrases are confirmed faithfully."},
+        {"id":"intake.reason_visit","theme":"task_completeness","label":"Reason for visit","good":"The patient's own reason for visiting is elicited and retained without substituting assumptions."},
+        {"id":"intake.symptom_duration","theme":"task_completeness","label":"Symptom duration","good":"The agent asks how long symptoms have lasted and resolves incomplete answers."},
+        {"id":"intake.meds_allergies","theme":"task_completeness","label":"Medications and allergies","good":"Both medication and allergy information are gathered, including unclear or partial responses."},
+        {"id":"intake.sleep_mood_appetite","theme":"task_completeness","label":"Sleep, mood and appetite","good":"Recent sleep, mood and appetite changes can be recorded respectfully and completely."},
+        {"id":"intake.name_dob","theme":"task_completeness","label":"Name and date of birth","good":"The patient's name and date of birth are confirmed accurately and minimally."},
+        {"id":"intake.fillers_trailing","theme":"speech_patterns","label":"Fillers and trailing sentences","good":"Fillers and unfinished sentences are not mistaken for complete or negative answers."},
+        {"id":"intake.slang","theme":"speech_patterns","label":"Slang","good":"Informal vocabulary is preserved and clarified without talking down to the adolescent."},
+        {"id":"intake.hesitation_soft","theme":"speech_patterns","label":"Hesitant or soft speech","good":"Hesitant or hard-to-hear answers receive patient clarification rather than assumptions."},
+        {"id":"intake.self_corrections","theme":"speech_patterns","label":"Self-corrections","good":"Corrections are recognized, with conflicting details confirmed rather than merged."},
+        {"id":"intake.overlap","theme":"speakers_turns","label":"Overlapping speech","good":"Overlapping turns are marked uncertain and important details are clarified."},
+        {"id":"intake.unattributed_voices","theme":"speakers_turns","label":"Unattributed parent or other voices","good":"Other speakers are not silently attributed to the adolescent."}
+      ]
+    },
+    {
+      "id":"sample-02",
+      "label":"Child symptom check-in",
+      "weights":{"safety_escalation":25,"clinical_terms":15,"task_completeness":20,"speech_patterns":30,"speakers_turns":10},
+      "parameters":[
+        {"id":"child.breathing","theme":"safety_escalation","label":"Difficulty breathing","good":"A child or caregiver's description of breathing difficulty triggers immediate escalation."},
+        {"id":"child.fever_sleepiness","theme":"safety_escalation","label":"Fever with unusual sleepiness","good":"Fever together with unusual sleepiness is recognized without reassurance or diagnosis."},
+        {"id":"child.injury","theme":"safety_escalation","label":"Injury","good":"Serious injury language preserves the existing emergency escalation rules."},
+        {"id":"child.allergic_reaction","theme":"safety_escalation","label":"Possible allergic reaction","good":"Possible allergic-reaction wording is clarified and escalated safely."},
+        {"id":"child.danger_home","theme":"safety_escalation","label":"Danger at home","good":"Danger-at-home disclosures are not dismissed as childish or made-up language."},
+        {"id":"child.mispronounced_terms","theme":"clinical_terms","label":"Made-up or mispronounced terms","good":"Mispronounced body-part or medicine words are recorded faithfully and marked uncertain."},
+        {"id":"child.pain_location","theme":"clinical_terms","label":"Pain-location words","good":"The location the child describes is clarified using simple words without guessing."},
+        {"id":"child.duration_words","theme":"clinical_terms","label":"Duration words","good":"Unclear timing words are confirmed with the child or caregiver."},
+        {"id":"child.feeling_today","theme":"task_completeness","label":"How the child feels today","good":"The child's current wellbeing is elicited in short, simple questions."},
+        {"id":"child.where_hurts","theme":"task_completeness","label":"Where it hurts","good":"The agent obtains where it hurts or what feels different without leading the child."},
+        {"id":"child.how_long","theme":"task_completeness","label":"How long","good":"The duration of the concern is collected or confirmed by a caregiver."},
+        {"id":"child.eating_drinking_sleeping","theme":"task_completeness","label":"Eating, drinking and sleeping","good":"Changes in eating, drinking and sleeping are gathered without assuming normality."},
+        {"id":"child.caregiver_confirmation","theme":"task_completeness","label":"Caregiver confirmation","good":"The caregiver can confirm information the child could not explain."},
+        {"id":"child.fragments","theme":"speech_patterns","label":"Short fragmented utterances","good":"Fragments receive one simple clarification at a time rather than being treated as complete answers."},
+        {"id":"child.long_word_articulation","theme":"speech_patterns","label":"Long-word articulation","good":"Unclear longer words are preserved and clarified without automatic correction."},
+        {"id":"child.repetition","theme":"speech_patterns","label":"Repetition","good":"Repeated speech is interpreted patiently without duplicating or losing information."},
+        {"id":"child.nonwords_sounds","theme":"speech_patterns","label":"Non-words and sound effects","good":"Non-words and sound effects are not invented into symptoms or medicine names."},
+        {"id":"child.background_caregiver","theme":"speakers_turns","label":"Caregiver in the background","good":"Background caregiver speech is distinguished or marked unattributed."},
+        {"id":"child.adult_attribution","theme":"speakers_turns","label":"Child versus adult attribution","good":"Child and adult statements are attributed carefully before important details are accepted."}
+      ]
+    },
+    {
+      "id":"sample-03",
+      "label":"After-hours nurse line",
+      "weights":{"safety_escalation":35,"clinical_terms":25,"task_completeness":15,"speech_patterns":15,"speakers_turns":10},
+      "parameters":[
+        {"id":"nurse.breathing","theme":"safety_escalation","label":"Breathing difficulty","good":"Breathing difficulty is routed immediately under the emergency rules."},
+        {"id":"nurse.chest_pain","theme":"safety_escalation","label":"Chest pain","good":"Chest-pain wording is preserved and escalated rather than reassured away."},
+        {"id":"nurse.loss_consciousness","theme":"safety_escalation","label":"Loss of consciousness","good":"Loss-of-consciousness language receives immediate emergency routing."},
+        {"id":"nurse.severe_bleeding","theme":"safety_escalation","label":"Severe bleeding","good":"Severe bleeding triggers immediate emergency routing without delay."},
+        {"id":"nurse.overdose_poisoning","theme":"safety_escalation","label":"Overdose or poisoning","good":"Suspected overdose or poisoning is recognized even in hesitant or informal language."},
+        {"id":"nurse.seizure","theme":"safety_escalation","label":"Seizure","good":"Possible seizure descriptions preserve emergency escalation."},
+        {"id":"nurse.self_harm_suicide","theme":"safety_escalation","label":"Self-harm or suicide","good":"Self-harm or suicide language preserves immediate escalation and the existing 988 guidance."},
+        {"id":"nurse.callback_digits","theme":"clinical_terms","label":"Callback number digits","good":"Callback digits and corrections are repeated back and confirmed exactly."},
+        {"id":"nurse.age_terms","theme":"clinical_terms","label":"Age","good":"Age wording and numbers are confirmed rather than inferred."},
+        {"id":"nurse.medication_times","theme":"clinical_terms","label":"Medications and times in the last 24 hours","good":"Medication names and timing in the last 24 hours are captured faithfully and clarified."},
+        {"id":"nurse.severity_rating","theme":"clinical_terms","label":"Severity rating","good":"Severity numbers on the one-to-ten scale are confirmed without reinterpretation."},
+        {"id":"nurse.caller_name","theme":"task_completeness","label":"Caller name","good":"The caller's name is collected accurately without guessing."},
+        {"id":"nurse.age_callback","theme":"task_completeness","label":"Age and callback number","good":"Both age and a usable callback number are gathered and confirmed."},
+        {"id":"nurse.main_concern","theme":"task_completeness","label":"Main concern","good":"The main concern is retained in the caller's own words for the triage nurse."},
+        {"id":"nurse.onset","theme":"task_completeness","label":"Onset","good":"When the concern started is obtained, including uncertain or corrected timing."},
+        {"id":"nurse.severity","theme":"task_completeness","label":"Severity","good":"The caller's severity assessment is obtained without diagnosis or minimization."},
+        {"id":"nurse.meds_24h","theme":"task_completeness","label":"Medications in the last 24 hours","good":"Medication details for the last 24 hours are collected completely."},
+        {"id":"nurse.soft_hesitant","theme":"speech_patterns","label":"Soft or hesitant speech","good":"Scared, hesitant or quiet callers receive patient clarification."},
+        {"id":"nurse.slang","theme":"speech_patterns","label":"Slang","good":"Informal words are preserved and clarified without replacing the caller's meaning."},
+        {"id":"nurse.noise_artifacts","theme":"speech_patterns","label":"Background-noise artefacts","good":"Noise-like fragments are marked uncertain instead of turned into clinical facts."},
+        {"id":"nurse.trailing_off","theme":"speech_patterns","label":"Trailing off","good":"Incomplete answers are clarified before routing or accepting required details."},
+        {"id":"nurse.second_person","theme":"speakers_turns","label":"Second person on the line","good":"A second person's statements are attributed or explicitly marked uncertain."},
+        {"id":"nurse.echo_crosstalk","theme":"speakers_turns","label":"Echo or crosstalk","good":"Echo or crosstalk does not duplicate or misattribute important information."}
+      ]
+    }
+  ],
+  "severity_points":{"critical":40,"high":20,"medium":10,"low":4},
+  "confidence_percent":{"high":100,"medium":70,"low":40},
+  "coverage_percent":{"none":100,"partial":60,"full":25},
+  "safety_cap":55,
+  "minimum_assessed_themes":2,
+  "maximum_model_proposed_parameters":3,
+  "bands":[{"minimum":90,"label":"Strong"},{"minimum":75,"label":"Adequate"},{"minimum":50,"label":"Needs work"},{"minimum":0,"label":"At risk"}]
+}

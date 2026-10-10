@@ -2,8 +2,14 @@
   "name": "speech-prompt-lab",
   "version": "0.1.0",
   "private": true,
-  "description": "Phase 1 shell for Accessibility Evaluation",
+  "description": "Cadence Accessibility Evaluation with Ultravox simulation and prompt review",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "diff": "^9.0.0",
+    "playwright": "^1.64.0",
+    "ws": "^8.22.0"
   }
 }

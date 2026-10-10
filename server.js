@@ -1,6 +1,7 @@
 const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
+const { createApi } = require("./lib/api");
 
 const ROOT = __dirname;
 const APP_DIR = path.join(ROOT, "artifacts", "speech-prompt-lab");
@@ -121,6 +122,8 @@ function readDemoSamples() {
       ...publicSource,
       id: sampleId,
       title: source.title ?? source.name ?? "Untitled sample",
+      use_case_label: typeof source.use_case_label === "string" ? source.use_case_label : "",
+      use_case_summary: typeof source.use_case_summary === "string" ? source.use_case_summary : "",
       agent_name: source.agent_name ?? source.agentName ?? "",
       speech_profile:
         source.speech_profile ??
@@ -239,12 +242,23 @@ function serveFile(res, filePath) {
   });
 }
 
+const api = createApi(sampleId => {
+  const sample = findDemoSource(sampleId);
+  return sample ? { sample, file: uploadedAudioPath(sample) || localAudioPath(sample, path.join(DEMO_DIR, `${sampleId}.json`)) } : null;
+}, sendJson);
+
 const server = http.createServer((req, res) => {
   let url;
   try {
     url = new URL(req.url, `http://${req.headers.host ?? "localhost"}`);
   } catch {
     sendJson(res, 400, { error: "Invalid request URL." });
+    return;
+  }
+  api.initialize(req, res);
+
+  if (url.pathname.startsWith("/api/") && url.pathname !== "/api/demo-samples" && !/^\/api\/demo-samples\/[^/]+\/audio$/.test(url.pathname)) {
+    api.handle(req, res, url);
     return;
   }
 
@@ -309,5 +323,11 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Speech Prompt Lab available on port ${PORT}`);
+  console.log(`Accessibility Evaluation available on port ${PORT}`);
+});
+
+for (const signal of ["SIGTERM", "SIGINT"]) process.on(signal, () => {
+  api.jobs.shutdown();
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 2500).unref();
 });

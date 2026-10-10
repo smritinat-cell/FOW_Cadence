@@ -1,2 +1,5 @@
 node_modules/
+/var/
+/generated-artifacts/
+/.cache/
 /attached_assets/*.wav
