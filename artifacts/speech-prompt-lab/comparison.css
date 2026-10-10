@@ -69,3 +69,8 @@
 .compare-result-metrics b { color:#344e49; font:700 18px var(--font-display); }
 .compare-panel.old .compare-result-score { border-color:#f2d1cd; background:#fff6f4; }
 .compare-panel.old .compare-result-score > strong { color:var(--brand-dark); }
+.demo-scorecard .performance-grid > article { border-color:#f2d1cd; background:#fff6f4; }
+.demo-scorecard .performance-grid > article > span,
+.demo-scorecard .performance-grid > article > strong,
+.demo-scorecard .performance-grid > article > strong small,
+.demo-scorecard .performance-grid > article > p { color:var(--brand-dark); }
