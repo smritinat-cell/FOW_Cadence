@@ -108,7 +108,6 @@
       <div class="scorecard-content">${accessibility}
         <section class="score-section review-findings"><p class="review-summary-copy">Review how the agent handles speech patterns and unfamiliar terms.</p><div class="score-section-heading"><div><p class="section-label">Verified findings</p><h2>What to improve</h2></div></div><div class="finding-list">${findings.map(ui.finding).join("")}</div></section>
         <section class="score-section"><div class="score-section-heading"><div><p class="section-label">Recommended system prompt edits</p><h2>Make the next test clearer</h2></div></div>
-          <div class="score-proposal-controls"><button type="button" class="button secondary small" id="demo-fix">${fixed ? "View completed fix" : "Fix prompt"}</button></div>
           ${ui.edits(review, updates, { showApplyButtons: false })}
           <div class="score-proposal-preview"><div class="score-section-heading"><div><p class="section-label">Prompt changes</p><h2>Current and proposed</h2></div></div>${ui.promptDiff(promptDiff)}
             <div class="proposal-test-actions"><button type="button" class="button" id="demo-test-changes">${fixed ? "View completed test" : "Test these changes"}</button></div>
@@ -122,7 +121,6 @@
       draw(ctx, route);
       document.querySelector(".demo-fixed-output")?.scrollIntoView({ behavior: "smooth", block: "start" });
     };
-    document.getElementById("demo-fix")?.addEventListener("click", showCompletedFix);
     document.getElementById("demo-test-changes")?.addEventListener("click", showCompletedFix);
   }
   function render(ctx, route) {

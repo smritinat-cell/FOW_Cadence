@@ -8,7 +8,7 @@ const code = fs.readFileSync(require.resolve('../artifacts/speech-prompt-lab/dem
 const simulationCode = fs.readFileSync(require.resolve('../artifacts/speech-prompt-lab/simulation.js'),'utf8');
 const settle = async () => { for(let i=0;i<3;i++) await new Promise(resolve=>setImmediate(resolve)); };
 
-test('the demo stages share saved text and Fix reveals the completed output without API calls', async()=>{
+test('the demo stages share saved text and testing reveals the completed output without API calls', async()=>{
   const content={innerHTML:''}, requests=[], elements=new Map(), timers=[];
   const sandbox={URLSearchParams,location:{search:'?demo=1',hash:'#/simulation'},document:{
     getElementById(id){if(!elements.has(id))elements.set(id,{hidden:true,handlers:{},scrollIntoView(){},addEventListener(type,fn){this.handlers[type]=fn;}});return elements.get(id);},
@@ -74,9 +74,9 @@ test('the demo stages share saved text and Fix reveals the completed output with
   assert.match(content.innerHTML,/Current and proposed/);
   assert.match(content.innerHTML,/prompt-diff-removed/);
   assert.match(content.innerHTML,/prompt-diff-added/);
-  assert.doesNotMatch(content.innerHTML,/data-proposal-edit/);
+  assert.doesNotMatch(content.innerHTML,/data-proposal-edit|id="demo-fix"|>Fix prompt</);
   assert.doesNotMatch(content.innerHTML,/Completed demo result/);
-  elements.get('demo-fix').handlers.click();
+  elements.get('demo-test-changes').handlers.click();
   assert.match(content.innerHTML,/<strong>46<small>\/ 100<\/small><\/strong>/);
   assert.match(content.innerHTML,/<strong>2 of 5<small> · 40%<\/small><\/strong>/);
   assert.match(content.innerHTML,/<strong>52%<\/strong>/);
