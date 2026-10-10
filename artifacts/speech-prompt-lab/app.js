@@ -382,7 +382,7 @@
         const end = Math.min(channel.length, start + step);
         for (let offset = start; offset < end; offset += 1) peak = Math.max(peak, Math.abs(channel[offset]));
         const height = Math.max(2, peak * 34);
-        bars.push(`<rect x="${(index * width / count).toFixed(2)}" y="${((44 - height) / 2).toFixed(2)}" width="3.5" height="${height.toFixed(2)}" rx="1.75" fill="#4b9180"/>`);
+        bars.push(`<rect x="${(index * width / count).toFixed(2)}" y="${((44 - height) / 2).toFixed(2)}" width="3.5" height="${height.toFixed(2)}" rx="1.75" fill="#b92f27"/>`);
       }
       const current = document.getElementById("waveform");
       if (current) {

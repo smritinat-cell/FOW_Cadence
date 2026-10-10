@@ -1,1 +1,3 @@
 - [App Storage readiness](app-storage-readiness.md) — creating a Client does not provision a default bucket; confirm storage readiness before relying on uploads.
+- [Phase sequencing](phase-sequencing.md) — later project phases remain blocked until every earlier phase is complete.
+- [Transcription trigger](transcription-trigger.md) — sample selection should start Ultravox transcription; loading or restoring the page must not start paid calls.

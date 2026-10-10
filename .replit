@@ -31,7 +31,10 @@ externalPort = 80
 [userenv]
 
 [userenv.shared]
-ULTRAVOX_API_KEY = "2vpsudbf.XRxQMs4ApTMTK8OzivwBH0DKaQrPvzQF"
 
 [nix]
 channel = "stable-25_05"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 180000
