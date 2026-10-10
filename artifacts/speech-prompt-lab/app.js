@@ -160,7 +160,7 @@
           </div>
           <div class="field" style="margin-top:16px">
             <span class="field-label">Use cases we'll test</span>
-            <div class="usecases"><span class="usecase-mark" aria-hidden="true">i</span><span>Describe the requests this agent should handle in the purpose field above.</span></div>
+            <div class="usecases"><span class="usecase-mark" aria-hidden="true">i</span><span>Generated from your agent's purpose in a later step.</span></div>
           </div>
         </section>
         <section class="panel ref-panel" aria-labelledby="reference-title">
@@ -187,14 +187,14 @@
             <button class="tab-button" id="tab-upload" role="tab" aria-selected="false" aria-controls="panel-upload" type="button">Upload call audio</button>
           </div>
           <div class="tab-panel" id="panel-connect" role="tabpanel" aria-labelledby="tab-connect">
-            <div class="connect-row"><div class="field"><label for="agent-id">Agent ID</label><input id="agent-id" type="text" value="${escapeHtml(experiment.agentId)}" placeholder="Enter an agent ID"></div><button class="button secondary" id="connect-button" type="button">Unavailable</button></div>
+            <div class="connect-row"><div class="field"><label for="agent-id">Agent ID</label><input id="agent-id" type="text" value="${escapeHtml(experiment.agentId)}" placeholder="Enter an agent ID"></div><button class="button secondary" id="connect-button" type="button">Coming soon</button></div>
             <p class="inline-feedback" id="connect-feedback" aria-live="polite"></p>
           </div>
           <div class="tab-panel" id="panel-prompt" role="tabpanel" aria-labelledby="tab-prompt" hidden>
             <div class="field"><label for="prompt-input">System prompt</label><textarea id="prompt-input" placeholder="Paste the agent's system prompt…">${escapeHtml(experiment.prompt)}</textarea></div>
           </div>
           <div class="tab-panel" id="panel-upload" role="tabpanel" aria-labelledby="tab-upload" hidden>
-            <div class="usecases"><span class="usecase-mark" aria-hidden="true">i</span><span>Call audio upload is unavailable. You can preview an available demo sample instead.</span></div>
+            <div class="usecases"><span class="usecase-mark" aria-hidden="true">i</span><span>Coming soon: upload your own recording.</span></div>
           </div>
         </section>
         <section class="panel" aria-labelledby="save-heading">
@@ -312,7 +312,7 @@
       document.querySelectorAll(".tab-panel").forEach(panel => { panel.hidden = panel.id !== tab.getAttribute("aria-controls"); });
     }));
     document.getElementById("connect-button").addEventListener("click", () => {
-      document.getElementById("connect-feedback").textContent = "Live agent connection is unavailable.";
+      document.getElementById("connect-feedback").textContent = "Live agent connection is on the roadmap.";
     });
 
     const offsetInput = document.getElementById("start-offset");
