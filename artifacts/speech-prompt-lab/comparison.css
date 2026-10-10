@@ -2,7 +2,6 @@
 .comparison-screen { --removed-ink: #a3342c; --removed-fill: #fce6e2; --added-ink: #246443; --added-fill: #e3f2e7; }
 .comparison-screen .page-heading { margin-bottom: 20px; }
 .comparison-source { display: flex; align-items: center; flex-wrap: wrap; gap: 9px 14px; margin-bottom: 22px; color: var(--muted); font: 11px var(--font-mono); overflow-wrap: anywhere; }
-.comparison-source-label { color: var(--brand-dark); letter-spacing: .1em; font-size: 10px; }
 .comparison-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 17px; }
 .comparison-counts { display: flex; flex-wrap: wrap; gap: 8px; }
 .change-count { display: inline-flex; align-items: center; padding: 7px 11px; border-radius: 7px; font-size: 12px; font-weight: 700; }
