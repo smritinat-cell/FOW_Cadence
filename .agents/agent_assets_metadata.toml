@@ -14,3 +14,31 @@ mtime_ms = 1791620624149
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:359f5169-6ae0-4ac5-9dc2-8a6eeccf7d68/9cfdcfb7-a529-46b3-8ebb-a8dd3ec8873b/1cf8f720-d789-4d80-b726-12a4a5acaf21"
 storage_version_token = "1791620627686328"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "nNjiTlgm7Qha_aY4kx1sJ"
+uri = "file://generated-artifacts/scorecard-populated-preview.jpg"
+type = "image"
+title = "Completed Scorecard — sample preview"
+description = "A completed illustrative review with an Accessibility score of 46/100, 2 of 5 key items captured, 52% word accuracy, findings, recommended edits and the proposed prompt. Fictional data; not results from your recordings."
+logical_id = "ced393da-11f3-4273-8b86-79f0fa8b9f28"
+content_hash = "sha256:4d35994fb6aaec49da1313c28bb3e4705133f646679187db56a8d44d1158dc54"
+size = 393854
+mtime_ms = 1791620765908
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:359f5169-6ae0-4ac5-9dc2-8a6eeccf7d68/ced393da-11f3-4273-8b86-79f0fa8b9f28/d1a153ac-a477-4fe0-b498-f6b26ce85b50"
+storage_version_token = "1791620818438337"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "0-_r9NMicZm2X3ymi6rOJ"
+uri = "file://generated-artifacts/scorecard-prompt-changes.jpg"
+type = "image"
+title = "Prompt comparison — sample preview"
+description = "Close-up of the current and proposed prompts, with additions highlighted and the Test these changes action. Illustrative preview only."
+logical_id = "7fcf78e7-20c5-4962-8806-3878ba7330e6"
+content_hash = "sha256:701a902e6fe6c4da4baf9dab480961db4aca3e27a309a33a00cc8fbbff121bbc"
+size = 136347
+mtime_ms = 1791620765992
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:359f5169-6ae0-4ac5-9dc2-8a6eeccf7d68/7fcf78e7-20c5-4962-8806-3878ba7330e6/71d48b04-1b9c-4a0d-950b-9a0e756f2db4"
+storage_version_token = "1791620818921613"
+content_type = "image/jpeg"
