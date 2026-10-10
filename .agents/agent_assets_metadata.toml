@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "2xa_vM8JPCLovrlBcD_vw"
+uri = "file://generated-artifacts/scorecard-preview.jpg"
+type = "image"
+title = "Current Scorecard screen"
+description = "Desktop view of Review of your agent, showing the empty state before a recording and evaluation are selected."
+logical_id = "9cfdcfb7-a529-46b3-8ebb-a8dd3ec8873b"
+content_hash = "sha256:0f3d65b497cffa774c30239e9954e28e423ea36834ce465daf7d8824d79eda3a"
+size = 56965
+mtime_ms = 1791620624149
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:359f5169-6ae0-4ac5-9dc2-8a6eeccf7d68/9cfdcfb7-a529-46b3-8ebb-a8dd3ec8873b/1cf8f720-d789-4d80-b726-12a4a5acaf21"
+storage_version_token = "1791620627686328"
+content_type = "image/jpeg"
