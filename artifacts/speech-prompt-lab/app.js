@@ -83,7 +83,7 @@
       duration: durationText(sample.duration_seconds)
     }));
     while (cards.length < 3) {
-      cards.push({ sample: null, id: `placeholder-${cards.length + 1}`, title: "Sample not loaded yet", profile: "No demo sample available", duration: "Unavailable" });
+      cards.push({ sample: null, id: `placeholder-${cards.length + 1}`, title: "Sample unavailable", profile: "No demo sample available", duration: "" });
     }
     return cards;
   }
@@ -105,7 +105,7 @@
       <audio id="sample-audio" controls preload="metadata" src="${escapeHtml(audioUrl)}">
         Your browser does not support audio playback.
       </audio>
-      <div class="field-help">Playback uses this sample file only. No evaluation is run.</div>
+      <div class="field-help">Preview of the selected sample audio.</div>
     </div>`;
   }
 
@@ -123,7 +123,7 @@
           </span>
           <span class="sample-copy"><span class="sample-title">${escapeHtml(card.title)}</span><span class="sample-profile">${escapeHtml(card.profile)}</span></span>
         </button>
-        <span class="sample-meta">${escapeHtml(card.duration)}${placeholder ? '<span class="sample-state">NOT INSTALLED</span>' : ""}</span>
+        <span class="sample-meta">${escapeHtml(card.duration)}${placeholder ? '<span class="sample-state">UNAVAILABLE</span>' : ""}</span>
         <button type="button" class="sample-play" data-play-sample="${escapeHtml(card.id)}"${playDisabled ? " disabled" : ""} aria-label="Play ${escapeHtml(card.title)} preview">
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5 12 8l-7 4.5z" fill="currentColor"/></svg><span>Play</span>
         </button>
@@ -139,15 +139,15 @@
 
     content.innerHTML = `<div class="page-heading">
       <div><div class="eyebrow">Evaluation workspace / 01</div><h1>Set up an eval</h1>
-      <p class="page-intro">Choose a real speech sample, describe the agent, and save the context for a future evaluation.</p></div>
+      <p class="page-intro">Choose a speech sample, describe the agent, and add evaluation context.</p></div>
       <div class="step-count">STEP 01 / 04</div>
     </div>
     <div class="layout-grid">
       <div class="stack">
         <section class="panel" aria-labelledby="samples-title">
-          <div class="panel-header"><div><h2 class="section-title" id="samples-title">Choose a demo sample</h2><p class="section-subtitle">Select a loaded recording to inspect its source audio.</p></div><span class="tiny-label">AUDIO INPUT</span></div>
+          <div class="panel-header"><div><h2 class="section-title" id="samples-title">Choose a demo sample</h2><p class="section-subtitle">Select a demo recording to preview its audio.</p></div><span class="tiny-label">AUDIO INPUT</span></div>
           ${samplesError ? `<p class="load-state error" role="status">${escapeHtml(samplesError)}</p>` : ""}
-          ${!samplesError && samples.length === 0 ? '<p class="load-state" role="status">No demo sample files are installed yet. Select a placeholder to continue setup.</p>' : ""}
+          ${!samplesError && samples.length === 0 ? '<p class="load-state" role="status">No demo samples are available. You can still complete the setup.</p>' : ""}
           ${!samplesError && samples.length > 0 && samples.length < 3 ? `<p class="load-state" role="status">Showing ${samples.length} of 3 demo samples. Missing samples are clearly marked.</p>` : ""}
           <div class="sample-list" role="group" aria-label="Demo sample choices">${cardMarkup}</div>
           ${audioPanel(sample)}
@@ -160,11 +160,11 @@
           </div>
           <div class="field" style="margin-top:16px">
             <span class="field-label">Use cases we'll test</span>
-            <div class="usecases"><span class="usecase-mark" aria-hidden="true">i</span><span>Generated from your agent's purpose in a later step</span></div>
+            <div class="usecases"><span class="usecase-mark" aria-hidden="true">i</span><span>Describe the requests this agent should handle in the purpose field above.</span></div>
           </div>
         </section>
         <section class="panel ref-panel" aria-labelledby="reference-title">
-          <div class="panel-header"><div><h2 class="section-title" id="reference-title">Reference material</h2><p class="section-subtitle">Add context the future evaluation should know. Upload and suggestions are not available yet.</p></div><span class="tiny-label">OPTIONAL</span></div>
+          <div class="panel-header"><div><h2 class="section-title" id="reference-title">Reference material</h2><p class="section-subtitle">Add context to inform your evaluation. Paste text below; file uploads and suggested references are unavailable.</p></div><span class="tiny-label">OPTIONAL</span></div>
           <div class="field"><label for="reference-input">Paste reference material</label><textarea id="reference-input" placeholder="Paste policies, terminology, or other relevant context…">${escapeHtml(experiment.reference)}</textarea></div>
           <div class="excerpt-row">
             <div class="field"><label for="start-offset">Start offset</label><input id="start-offset" type="number" inputmode="decimal" min="0" step="1" value="${escapeHtml(start)}" aria-describedby="offset-help excerpt-feedback"><span class="field-help" id="offset-help">Seconds from the beginning · default 0</span></div>
@@ -187,20 +187,20 @@
             <button class="tab-button" id="tab-upload" role="tab" aria-selected="false" aria-controls="panel-upload" type="button">Upload call audio</button>
           </div>
           <div class="tab-panel" id="panel-connect" role="tabpanel" aria-labelledby="tab-connect">
-            <div class="connect-row"><div class="field"><label for="agent-id">Agent ID</label><input id="agent-id" type="text" value="${escapeHtml(experiment.agentId)}" placeholder="Enter an agent ID"></div><button class="button secondary" id="connect-button" type="button">Coming soon</button></div>
+            <div class="connect-row"><div class="field"><label for="agent-id">Agent ID</label><input id="agent-id" type="text" value="${escapeHtml(experiment.agentId)}" placeholder="Enter an agent ID"></div><button class="button secondary" id="connect-button" type="button">Unavailable</button></div>
             <p class="inline-feedback" id="connect-feedback" aria-live="polite"></p>
           </div>
           <div class="tab-panel" id="panel-prompt" role="tabpanel" aria-labelledby="tab-prompt" hidden>
             <div class="field"><label for="prompt-input">System prompt</label><textarea id="prompt-input" placeholder="Paste the agent's system prompt…">${escapeHtml(experiment.prompt)}</textarea></div>
           </div>
           <div class="tab-panel" id="panel-upload" role="tabpanel" aria-labelledby="tab-upload" hidden>
-            <div class="usecases"><span class="usecase-mark" aria-hidden="true">i</span><span>Coming soon: upload your own recording</span></div>
+            <div class="usecases"><span class="usecase-mark" aria-hidden="true">i</span><span>Call audio upload is unavailable. You can preview an available demo sample instead.</span></div>
           </div>
         </section>
         <section class="panel" aria-labelledby="save-heading">
           <div class="panel-header"><div><h2 class="section-title" id="save-heading">Experiment setup</h2><p class="section-subtitle">Your selections stay in this browser.</p></div></div>
           <div class="save-state" id="save-state"><span class="save-dot"></span>Saved on this device</div>
-          <div class="footer-line">No provider calls in this phase.</div>
+          <div class="footer-line">No provider calls are made from this workspace.</div>
         </section>
       </div>
     </div>`;
@@ -212,19 +212,19 @@
     const page = routes.find(item => item.path === path);
     const copy = {
       "/simulation": {
-        title: "Simulation is not available yet",
-        intro: "This phase prepares the evaluation inputs only. No conversation or agent run has been created.",
-        detail: "No simulation has run. This screen will become available when evaluation execution is implemented."
+        title: "Simulation unavailable",
+        intro: "No agent conversation has been run for this experiment.",
+        detail: "Simulation results are not available."
       },
       "/scorecard": {
         title: "No scorecard yet",
-        intro: "There are no measured or reviewed results to show for this experiment.",
-        detail: "Scores, findings, and prompt fixes are unavailable until a real evaluation has run. Nothing is estimated or filled in."
+        intro: "No measured or reviewed results are available for this experiment.",
+        detail: "Scores, findings, and prompt fixes are unavailable because no evaluation results exist."
       },
       "/comparison": {
-        title: "Before and after is not available yet",
-        intro: "A comparison needs a real baseline and a revised evaluation. Neither exists in this phase.",
-        detail: "No before/after results are available. This workspace will not invent conversations, scores, or improvements."
+        title: "Comparison unavailable",
+        intro: "A before-and-after comparison requires baseline and revised evaluation results.",
+        detail: "There are no saved results to compare."
       }
     }[path];
     content.innerHTML = `<div class="page-heading">
@@ -232,7 +232,7 @@
       <p class="page-intro">${escapeHtml(copy.intro)}</p></div><div class="step-count">STEP ${page.index} / 04</div>
     </div>
     <section class="screen-placeholder" aria-labelledby="unavailable-title">
-      <span class="status-kicker">Not run in Phase 1</span>
+      <span class="status-kicker">Current status</span>
       <h2 id="unavailable-title">${escapeHtml(copy.title)}</h2>
       <p>${escapeHtml(copy.intro)}</p>
       <div class="unavailable-box"><strong>Results unavailable</strong><p>${escapeHtml(copy.detail)}</p></div>
@@ -240,7 +240,7 @@
         <a class="button" href="#/setup">Return to setup</a>
         ${path !== "/simulation" ? '<a class="button secondary" href="#/simulation">View simulation status</a>' : ""}
       </div>
-      <div class="footer-line">Phase 1 does not contact an agent or speech provider.</div>
+      <div class="footer-line">No agent or speech provider is contacted.</div>
     </section>`;
   }
 
@@ -312,7 +312,7 @@
       document.querySelectorAll(".tab-panel").forEach(panel => { panel.hidden = panel.id !== tab.getAttribute("aria-controls"); });
     }));
     document.getElementById("connect-button").addEventListener("click", () => {
-      document.getElementById("connect-feedback").textContent = "Live agent connection is on the roadmap.";
+      document.getElementById("connect-feedback").textContent = "Live agent connection is unavailable.";
     });
 
     const offsetInput = document.getElementById("start-offset");
