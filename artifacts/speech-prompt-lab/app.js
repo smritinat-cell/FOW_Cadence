@@ -275,6 +275,7 @@
       else link.removeAttribute("aria-current");
     });
     if (route === "/setup") setupScreen();
+    else if (route === "/comparison") CadenceComparison.mount(content);
     else unavailableScreen(route);
   }
 
