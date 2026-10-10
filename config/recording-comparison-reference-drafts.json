@@ -1,0 +1,29 @@
+{
+  "version": "readable-reference-drafts-1",
+  "historical": [
+    {
+      "sampleId": "sample-01",
+      "filename": "M_0061_14y8m_1.wav",
+      "reference_transcript": "For Christmas, I want some new games for my Nintendo sixty-four. And also I want some new books to help me with my work at school. And I also want a new personal CD player. And also I want a few new books to read at home. I've also hoping to get, which we've already, is a new badminton racket, a squash racket, and some new squash shoes as well. Down at school in Dorset, what we do is we have this thing, which we do on Wednesday afternoons, which is called the [unclear], which is like the very low down [unclear] of the armed forces. What we [unclear].",
+      "critical_items": [
+        { "id": "games", "label": "New games", "phrases": ["new games"] },
+        { "id": "school-books", "label": "Books for school work", "phrases": ["work at school"] },
+        { "id": "cd-player", "label": "Personal CD player", "phrases": ["personal CD player"] },
+        { "id": "squash-shoes", "label": "Squash shoes", "phrases": ["squash shoes"] },
+        { "id": "school-location", "label": "Dorset", "phrases": ["Dorset"] }
+      ],
+      "reference": {
+        "kind": "readable",
+        "policyVersion": "readable-1",
+        "verified": false,
+        "verifiedBy": null,
+        "verifiedAt": null,
+        "sourceAudioSha256": "aac485bd314f243e611beab22ca711276e9806578299138e9f6bc2204d123163",
+        "excerpt": { "startOffset": 0, "length": 133.747 },
+        "sourceUrl": "https://www.uclass.psychol.ucl.ac.uk/Transcript/Flat/Ortho/M_0061_14y8m_1.orth",
+        "sourceReferenceSha256": "41222bfa0ea1af5549d9a45e7be8c6b2118c08a7bc814546c6010f61a6082a8d",
+        "status": "published_source_draft_awaiting_audio_review"
+      }
+    }
+  ]
+}

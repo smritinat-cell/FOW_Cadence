@@ -1,0 +1,25 @@
+{
+  "rubric_version": "recording-transcription-1",
+  "profile": "recording-comparison",
+  "themes": [
+    { "id": "speech_patterns", "label": "Speech patterns" },
+    { "id": "vocabulary_uncertainty", "label": "Vocabulary and uncertainty" },
+    { "id": "meaning_retention", "label": "Meaning retained" },
+    { "id": "speaker_attribution", "label": "Speaker attribution" }
+  ],
+  "parameters": [
+    { "id": "transcription.repetitions", "theme": "speech_patterns", "label": "Repetitions and hesitation", "good": "Completed wording remains readable while the speaker's meaning is retained." },
+    { "id": "transcription.false_starts", "theme": "speech_patterns", "label": "False starts and self-corrections", "good": "The speaker's final intended phrasing is retained in its original order." },
+    { "id": "transcription.unfamiliar_terms", "theme": "vocabulary_uncertainty", "label": "Unfamiliar terms", "good": "Unfamiliar terms remain uncertain when the transcript alone cannot establish the intended word." },
+    { "id": "transcription.uncertainty", "theme": "vocabulary_uncertainty", "label": "Uncertainty", "good": "Ambiguous wording is preserved without an unsupported confident correction." },
+    { "id": "transcription.short_answers", "theme": "meaning_retention", "label": "Meaningful short responses", "good": "Meaningful short answers, including yes and no, are retained." },
+    { "id": "transcription.completed_information", "theme": "meaning_retention", "label": "Completed information", "good": "Substantive information remains in the speaker's original order." },
+    { "id": "transcription.multiple_speakers", "theme": "speaker_attribution", "label": "Multiple speakers", "good": "Speech from different speakers is attributed only when the transcript provides evidence." },
+    { "id": "transcription.overlap", "theme": "speaker_attribution", "label": "Overlapping or unattributed speech", "good": "Unclear speaker attribution remains uncertain." }
+  ],
+  "weights": { "speech_patterns": 25, "vocabulary_uncertainty": 25, "meaning_retention": 25, "speaker_attribution": 25 },
+  "severity_points": { "critical": 40, "high": 20, "medium": 10, "low": 4 },
+  "confidence_percent": { "high": 100, "medium": 70, "low": 40 },
+  "coverage_percent": { "none": 100, "partial": 60, "full": 25 },
+  "maximum_model_proposed_parameters": 3
+}

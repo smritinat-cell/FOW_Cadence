@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const enabled = document.documentElement?.dataset.demo === "true" || new URLSearchParams(location.search).get("demo") === "1";
+  const enabled = window.CadenceMode ? window.CadenceMode.saved : document.documentElement?.dataset.demo === "true" || new URLSearchParams(location.search).get("demo") === "1";
   if (enabled) document.getElementById("demo-mode-badge").hidden = false;
   let pair = null, pending = null, fixed = false, running = false, runKind = "baseline", hasRun = false, runSampleId = null, runSequence = 0;
   const escape = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);

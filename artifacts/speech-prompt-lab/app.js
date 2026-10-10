@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const STORE_KEY = "speech-prompt-lab-experiment-v1";
+  const STORE_KEY = window.CadenceMode?.storageKey("experiment") || "speech-prompt-lab-experiment-v1";
   const routes = [
     { path: "/setup", title: "Set up an eval", index: "01" },
     { path: "/simulation", title: "Simulation", index: "02" },
@@ -44,7 +44,7 @@
 
   function subscribeSetupEvaluationLock() {
     if (unsubscribeEvaluationLock) unsubscribeEvaluationLock();
-    if (window.CadenceDemoFlow?.enabled) {
+    if (window.CadenceDemoFlow?.enabled || window.CadenceMode?.live) {
       unsubscribeEvaluationLock = null;
       applySetupEvaluationLock(false);
       return;
@@ -81,6 +81,11 @@
     startOffset: Number.isFinite(Number(stored.startOffset)) ? Math.max(0, Number(stored.startOffset)) : 0,
     excerptLength: ["15", "30", "60", "rest"].includes(String(stored.excerptLength)) ? String(stored.excerptLength) : "15"
   };
+  if (window.CadenceMode?.live) {
+    experiment.startOffset = 0;
+    experiment.excerptLength = "15";
+    experiment.prompt = "Transcribe the audio. Output only the transcript.";
+  }
 
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, character => ({
@@ -135,7 +140,7 @@
       agentName: String(sample?.agent_name || sample?.title || ""),
       purpose: typeof sample?.agent_purpose === "string" ? sample.agent_purpose : "",
       speechProfileTags: profileTags,
-      prompt: typeof sample?.system_prompt === "string" ? sample.system_prompt : "",
+      prompt: window.CadenceMode?.live ? "Transcribe the audio. Output only the transcript." : typeof sample?.system_prompt === "string" ? sample.system_prompt : "",
       reference: typeof sample?.reference_material === "string" ? sample.reference_material : ""
     };
   }
@@ -271,7 +276,7 @@
           <p class="inline-feedback" id="connect-feedback" aria-live="polite"></p>
         </div>
         <div class="tab-panel" id="panel-prompt" role="tabpanel" aria-labelledby="tab-prompt"${activeAgentTab === "prompt" ? "" : " hidden"}>
-          <div class="field"><label for="prompt-input">System prompt</label><textarea id="prompt-input" placeholder="Paste the agent's system prompt…">${escapeHtml(experiment.prompt)}</textarea></div>
+          <div class="field"><label for="prompt-input">System prompt</label><textarea id="prompt-input"${window.CadenceMode?.live ? " readonly" : ""} placeholder="Paste the agent's system prompt…">${escapeHtml(experiment.prompt)}</textarea></div>
         </div>
       </section>
     </section>
@@ -287,8 +292,8 @@
           ${audioPanel(sample)}
           ${window.CadenceDemoFlow?.preview(sample) || ""}
           <div class="excerpt-row">
-            <div class="field"><label for="start-offset">Start offset</label><input id="start-offset" type="number" inputmode="decimal" min="0" step="1" value="${escapeHtml(start)}" aria-describedby="offset-help excerpt-feedback"><span class="field-help" id="offset-help">Seconds from the beginning · default 0</span></div>
-            <div class="field duration-select"><label for="excerpt-length">Excerpt length</label><select id="excerpt-length">
+            <div class="field"><label for="start-offset">Start offset</label><input id="start-offset"${window.CadenceMode?.live ? " disabled" : ""} type="number" inputmode="decimal" min="0" step="1" value="${escapeHtml(start)}" aria-describedby="offset-help excerpt-feedback"><span class="field-help" id="offset-help">Seconds from the beginning · default 0</span></div>
+            <div class="field duration-select"><label for="excerpt-length">Excerpt length</label><select id="excerpt-length"${window.CadenceMode?.live ? " disabled" : ""}>
               <option value="15"${experiment.excerptLength === "15" ? " selected" : ""}>15 seconds</option>
               <option value="30"${experiment.excerptLength === "30" ? " selected" : ""}>30 seconds</option>
               <option value="60"${experiment.excerptLength === "60" ? " selected" : ""}>60 seconds</option>
@@ -320,6 +325,29 @@
       if (!response.ok) throw new Error();
       const data = await response.json();
       samples = validSamples(data).slice(0, 3);
+      if (window.CadenceMode?.live) {
+        const statusResponse = await fetch("/api/live/status", { credentials: "include" });
+        if (!statusResponse.ok) throw new Error();
+        const status = await statusResponse.json();
+        const recordings = samples;
+        samples = validSamples(status.clips).slice(0, 3).map(clip => {
+          const recording = recordings.find(item => String(item.id) === String(clip.sampleId)) || {};
+          return {
+            id: clip.sampleId,
+            title: clip.title,
+            audio_filename: clip.filename,
+            audio_url: clip.audioSrc || recording.audio_url,
+            duration_seconds: recording.duration_seconds,
+            agent_name: clip.context?.agentName || "Cadence recording transcription",
+            agent_purpose: clip.context?.purpose || "Produce a readable transcript from the selected recording.",
+            speech_profile_tags: clip.context?.speechProfileTags || [],
+            system_prompt: "Transcribe the audio. Output only the transcript.",
+            reference_material: "",
+            use_case_label: clip.title || clip.useCase?.label || clip.label,
+            use_case_summary: clip.useCase?.summary || "Compare the same recording before and after a prompt improvement."
+          };
+        });
+      }
       const hasStoredField = name => Object.prototype.hasOwnProperty.call(stored, name);
       const requestedId = stored.useCaseId ?? stored.selectedId;
       const restoredSample = samples.find(sample => String(sample.id) === String(requestedId)) ||
@@ -328,11 +356,11 @@
         experiment.selectedId = restoredSample.id;
         experiment.useCaseId = restoredSample.id;
         const defaults = sampleDefaults(restoredSample);
-        if (!hasStoredField("agentName") && !editedBeforeSamplesLoad.has("agentName")) experiment.agentName = defaults.agentName;
-        if (!hasStoredField("purpose") && !editedBeforeSamplesLoad.has("purpose")) experiment.purpose = defaults.purpose;
-        if (!hasStoredField("speechProfileTags") && !editedBeforeSamplesLoad.has("speechProfileTags")) experiment.speechProfileTags = defaults.speechProfileTags.slice();
+        if ((window.CadenceMode?.live || !hasStoredField("agentName")) && !editedBeforeSamplesLoad.has("agentName")) experiment.agentName = defaults.agentName;
+        if ((window.CadenceMode?.live || !hasStoredField("purpose")) && !editedBeforeSamplesLoad.has("purpose")) experiment.purpose = defaults.purpose;
+        if ((window.CadenceMode?.live || !hasStoredField("speechProfileTags")) && !editedBeforeSamplesLoad.has("speechProfileTags")) experiment.speechProfileTags = defaults.speechProfileTags.slice();
         if (!hasStoredField("prompt") && !editedBeforeSamplesLoad.has("prompt")) experiment.prompt = defaults.prompt;
-        if (!hasStoredField("reference") && !editedBeforeSamplesLoad.has("reference")) experiment.reference = defaults.reference;
+        if ((window.CadenceMode?.live || !hasStoredField("reference")) && !editedBeforeSamplesLoad.has("reference")) experiment.reference = defaults.reference;
       } else {
         experiment.selectedId = null;
         experiment.useCaseId = null;
@@ -398,6 +426,10 @@
       if (active) link.setAttribute("aria-current", "page");
       else link.removeAttribute("aria-current");
     });
+    if (window.CadenceMode?.live && window.CadenceLiveFlow && route !== "/setup") {
+      window.CadenceLiveFlow.render({ content, experiment, samples, escapeHtml, saveExperiment }, route);
+      return;
+    }
     if (window.CadenceDemoFlow?.enabled && route !== "/setup") {
       window.CadenceDemoFlow.render({ content, experiment, samples, escapeHtml, saveExperiment }, route);
       return;
@@ -407,7 +439,7 @@
       unsubscribeEvaluationLock = null;
     }
     if (route === "/setup") {
-      if (window.CadenceSimulation && !window.CadenceDemoFlow?.enabled) {
+      if (window.CadenceSimulation && !window.CadenceDemoFlow?.enabled && !window.CadenceMode?.live) {
         window.CadenceSimulation.init({ content, experiment, samples, escapeHtml, saveExperiment }, { loadModels: false });
       }
       setupScreen();

@@ -8,7 +8,8 @@ const output = path.join(root, "generated-artifacts", "cadence-demo");
 const assets = [
   "index.html", "app.js", "styles.css", "cadence-logo.png",
   "simulation.js", "comparison.js", "comparison.css", "transcript-diff.js",
-  "demo-flow.js", "comparison-results.json"
+  "demo-flow.js", "comparison-results.json", "mode-control.js", "live-flow.js", "live-mode.css",
+  "live-references.js", "live-references.css"
 ];
 const samples = JSON.parse(fs.readFileSync(path.join(source, "demo-samples.json"), "utf8"));
 const recordings = samples.map(sample => {
@@ -33,5 +34,16 @@ for (const { sample, recording } of recordings) {
   sample.audio_url = `/audio/${encodeURIComponent(filename)}`;
 }
 fs.writeFileSync(path.join(output, "demo-samples.json"), JSON.stringify(samples, null, 2) + "\n");
-fs.writeFileSync(path.join(output, "vercel.json"), JSON.stringify({ version: 2, framework: null }, null, 2) + "\n");
+const backend = process.env.CADENCE_LIVE_BACKEND_URL;
+const deployment = { version: 2, framework: null };
+if (backend) {
+  const url = new URL(backend);
+  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) {
+    throw new Error("CADENCE_LIVE_BACKEND_URL must be a public HTTPS backend URL without credentials or query parameters.");
+  }
+  const origin = url.href.replace(/\/$/, "");
+  deployment.rewrites = [{ source: "/api/:path*", destination: `${origin}/api/:path*` }];
+  deployment.headers = [{ source: "/api/:path*", headers: [{ key: "Cache-Control", value: "private, no-store" }, { key: "x-vercel-enable-rewrite-caching", value: "0" }] }];
+}
+fs.writeFileSync(path.join(output, "vercel.json"), JSON.stringify(deployment, null, 2) + "\n");
 console.log(`Built saved demo with ${samples.length} recordings in ${path.relative(root, output)}.`);

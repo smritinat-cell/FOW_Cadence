@@ -1,0 +1,8 @@
+.live-reference-details { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+.live-reference-details summary { margin-bottom: 16px; cursor: pointer; font-weight: 700; }
+.live-reference-details audio { width: 100%; margin: 4px 0 16px; }
+.live-reference-details .field { margin: 14px 0; }
+.live-reference-details textarea { width: 100%; font: 12px/1.6 var(--font-mono); }
+.live-reference-confirm { display: flex; align-items: flex-start; gap: 10px; margin: 16px 0; font-size: 13px; line-height: 1.5; }
+.live-reference-confirm input { width: auto; margin-top: 3px; accent-color: var(--brand-dark); }
+#live-reference-feedback { min-height: 20px; color: var(--muted); font-size: 12px; }

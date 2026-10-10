@@ -1,8 +1,9 @@
 # Accessibility Evaluation
 
-Cadence demo sample setup, live Ultravox baseline transcription, and text-only
-Ultravox prompt review. Before & after currently shows a clearly labelled,
-user-supplied demo comparison; live revised-prompt runs are coming next.
+Cadence evaluates voice-agent accessibility and compares results before and
+after a prompt improvement. The saved walkthrough keeps the shipped full
+transcript and results. A hidden live mode tests 15-second recording excerpts
+with Ultravox and offers previous completed runs while a new test is loading.
 
 ## Start the app
 
@@ -17,9 +18,9 @@ original uploaded WAV files in `attached_assets/`; they are not duplicated into
 the source tree. If no sample JSON files are present, the setup screen displays
 three disabled placeholder cards.
 
-These recordings are available in the workspace prototype only. Configure
-Replit App Storage before publishing the audio; a storage bucket is not yet
-configured for this project. WAV uploads are excluded from Git and publication.
+Keep the three original WAV files in `attached_assets/` on the backend.
+The static Vercel build copies these recordings into its audio directory.
+WAV uploads and runtime results are excluded from Git.
 The three samples have explicit fictional pediatric agent contexts and editable
 prompt presets. Selecting a different sample asks before replacing an edited
 field. The recordings themselves are ordinary conversations, not healthcare
@@ -31,6 +32,50 @@ in sync. Agent ID and excerpt choices are preserved; offsets are clamped to the
 new sample. One confirmation protects all edited auto-filled fields. Reset
 restores sample defaults without replacing Agent ID. Saved setup edits survive
 reload. Jobs record the selected use case as metadata only, never model input.
+
+## Hidden live walkthrough
+
+Click the Cadence logo five times within three seconds, or focus it and press
+Enter five times. Choose **Live evaluation**; choose **Saved results** to return
+to the existing walkthrough. The mode is local to the current browser tab, and
+live setup and history use separate storage from the saved demo.
+
+The backend reads the existing `ULTRAVOX_API_KEY` environment secret directly.
+No database, presenter code, or new session secret is required. Run the Node
+server with `npm start`; FFmpeg prepares the first 15 seconds of each recording.
+
+- **Run baseline** makes one audio call with the original transcription prompt.
+- **Test these changes** makes one audio call with the exact shipped
+  `readable-transcript-v1` prompt from `config/transcript-improvement.json`.
+- **Previous runs** opens bundled or completed real comparisons without a model
+  call. The original full-recording comparison is bundled in
+  `config/live-prepared-history.json`; it retains its own audio range and text.
+- **Stop & use** stops the current job and opens the selected previous run.
+  New calls stay disabled while cancellation finishes. A late response cannot
+  replace the comparison the presenter selected.
+
+Live results are cached in `var/live-state.json`. The demo permits one active
+provider job and reserves a maximum of 24 provider minutes in that cache.
+Redeploying to a fresh filesystem resets this cache; bundled previous runs
+remain available. Opening pages, polling, choosing recordings, and loading
+previous results do not create inference calls.
+
+Measured accessibility scores retain Smriti’s formula: the rounded average of
+key-item capture percentage and word accuracy percentage. The hidden menu’s
+**Check recording references** control lets the presenter listen to each
+15-second excerpt and save its checked readable transcript and key details.
+Live transcription works before that check, with numerical accuracy scores
+unavailable. The saved walkthrough keeps its existing illustrative scores.
+References are never sent to Ultravox as answers.
+
+To build the Vercel frontend with its same-origin backend proxy:
+
+```sh
+CADENCE_LIVE_BACKEND_URL=https://your-running-backend.replit.app node scripts/build-demo.cjs
+```
+
+Deploy `generated-artifacts/cadence-demo`. The backend URL must serve this
+branch’s running Node app; the Replit project editor URL is not an API URL.
 
 ## Deliberate provider calls
 
@@ -73,11 +118,12 @@ reload. Jobs record the selected use case as metadata only, never model input.
   displayed scorecard without deleting saved evaluations. Setup is locked while
   evaluation is active. Reopening an evaluation reads disk only, without a
   provider call.
-- **Before & after:** the supplied before/after texts are fixed demo data, kept
+- **Saved Results Summary:** the supplied before/after texts are fixed demo data, kept
   separately from sample metadata and real run history. Highlights and word-change
   counts describe text differences, not accuracy or improvement. Copy and TXT/JSON
-  export preserve the exact supplied text. Live comparison buttons are disabled;
-  this screen never sends either example to Ultravox or uses it as reference data.
+  export preserve the exact supplied text. Saved mode never sends these examples
+  to Ultravox or uses them as reference data. Live mode uses the separate workflow
+  described above.
 
 ## Evaluation routes
 
@@ -96,7 +142,8 @@ from real results.
 
 ## Verification commands
 
-- `npm test`: local protocol, runner, validation and FFmpeg checks, no paid calls.
+- `npm test`: local protocol, runner, validation, live-mode and FFmpeg checks,
+  with mocked provider requests and no paid calls.
 - `node scripts/verify-ui.js`: controlled Preview UI responses, no paid calls.
 - `node scripts/verify-preview.js --paid`: explicitly opted-in real button-driven
   Preview calls. Never part of startup or automatic tests. Wait for a replacement
