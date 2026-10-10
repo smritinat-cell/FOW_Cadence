@@ -74,3 +74,7 @@
 .demo-scorecard .performance-grid > article > strong,
 .demo-scorecard .performance-grid > article > strong small,
 .demo-scorecard .performance-grid > article > p { color:var(--brand-dark); }
+.demo-scorecard .score-edit-groups { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.demo-scorecard .score-edit-group { display:grid; grid-template-rows:auto 1fr; }
+.demo-scorecard .score-edit-list { grid-template-columns:minmax(0,1fr); }
+@media (max-width:760px) { .demo-scorecard .score-edit-groups { grid-template-columns:minmax(0,1fr); } }

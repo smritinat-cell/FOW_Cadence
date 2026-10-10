@@ -111,7 +111,7 @@
           <div class="score-proposal-controls"><button type="button" class="button secondary small" id="demo-fix">${fixed ? "View completed fix" : "Fix prompt"}</button></div>
           ${ui.edits(review, updates, { showApplyButtons: false })}
           <div class="score-proposal-preview"><div class="score-section-heading"><div><p class="section-label">Prompt changes</p><h2>Current and proposed</h2></div></div>${ui.promptDiff(promptDiff)}
-            <div class="proposal-test-actions"><button type="button" class="button" id="demo-test-changes">${fixed ? "View completed test" : "Test these changes"}</button><a class="button secondary" href="#/comparison">View results summary</a></div>
+            <div class="proposal-test-actions"><button type="button" class="button" id="demo-test-changes">${fixed ? "View completed test" : "Test these changes"}</button></div>
           </div>
         </section>
         ${fixed ? `<section class="score-section demo-fixed-output"><div class="score-section-heading"><div><p class="section-label">Completed demo result</p><h2>Improved response</h2></div><span class="sim-state finished">Complete</span></div><div class="compare-counts"><div class="compare-count removed"><strong>${changes.removedWords}</strong><span>Words removed</span></div><div class="compare-count added"><strong>${changes.addedWords}</strong><span>Words added</span></div></div><pre class="output-block demo-transcript">${escape(pair.new.text)}</pre><div class="demo-actions"><a class="button" href="#/comparison">View results summary</a></div></section>` : ""}
