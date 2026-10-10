@@ -1,0 +1,12 @@
+{
+  "id": "sample-02",
+  "title": "Sample 2",
+  "speech_profile": "Profile not provided",
+  "duration_seconds": 140.365,
+  "agent_purpose": "",
+  "reference_transcript": "",
+  "critical_items": [],
+  "reference_material": "",
+  "prototype_audio_file": "M_1114_09y10m.1_1791609645061.wav",
+  "audio_size_bytes": 12380204
+}

@@ -1,0 +1,1 @@
+- [App Storage readiness](app-storage-readiness.md) — creating a Client does not provision a default bucket; confirm storage readiness before relying on uploads.
